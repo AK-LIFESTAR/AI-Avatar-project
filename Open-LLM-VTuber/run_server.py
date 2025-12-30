@@ -5,7 +5,11 @@ import asyncio
 import argparse
 import subprocess
 from pathlib import Path
-import tomli
+# Use built-in tomllib (Python 3.11+) to avoid mypyc bundling issues with PyInstaller
+try:
+    import tomllib  # Python 3.11+ built-in
+except ImportError:
+    import tomli as tomllib  # Fallback for Python 3.10
 import uvicorn
 from loguru import logger
 from upgrade_codes.upgrade_manager import UpgradeManager
@@ -35,7 +39,7 @@ upgrade_manager = UpgradeManager()
 
 def get_version() -> str:
     with open(BASE_DIR / "pyproject.toml", "rb") as f:
-        pyproject = tomli.load(f)
+        pyproject = tomllib.load(f)
     return pyproject["project"]["version"]
 
 
