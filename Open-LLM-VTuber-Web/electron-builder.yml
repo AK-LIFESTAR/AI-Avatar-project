@@ -56,7 +56,6 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: github
-  releaseType: release
-  publishAutoUpdate: false
+# Disable electron-builder's built-in publish to avoid PublishManager errors.
+# We use a separate GitHub Action (softprops/action-gh-release) for releasing.
+publish: null

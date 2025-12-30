@@ -49,9 +49,28 @@ jobs:
         env:
           # Avoid flaky electron binary mirrors; use official default
           ELECTRON_GET_USE_PROXY: "false"
+          # Provide tokens in case any publisher code path still tries to auth
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
         run: |
-          npm run build
-          npx electron-builder --win --publish=never
+          Write-Host "=== Building Electron frontend ===" -ForegroundColor Cyan
+          npm run build 2>&1 | Tee-Object -FilePath ..\electron-build.log
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Frontend build failed with exit code $LASTEXITCODE" -ForegroundColor Red
+            exit $LASTEXITCODE
+          }
+          
+          Write-Host "=== Listing backend-dist contents ===" -ForegroundColor Cyan
+          Get-ChildItem -Path backend-dist -Recurse | Select-Object -First 50 | ForEach-Object { Write-Host $_.FullName }
+          
+          Write-Host "=== Running electron-builder ===" -ForegroundColor Cyan
+          # Use space syntax (--publish never) and debug logging for diagnosis
+          npx electron-builder --win --publish never --log-level debug 2>&1 | Tee-Object -Append -FilePath ..\electron-build.log
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Electron builder failed with exit code $LASTEXITCODE" -ForegroundColor Red
+            exit $LASTEXITCODE
+          }
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
@@ -69,6 +88,7 @@ jobs:
           name: build-logs
           path: |
             backend-build.log
+            electron-build.log
           if-no-files-found: ignore
 
       # Also publish to a GitHub Release so you can share a direct download link
