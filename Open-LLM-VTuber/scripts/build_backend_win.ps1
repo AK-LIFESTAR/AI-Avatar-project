@@ -48,6 +48,8 @@ Write-Host "Installing silero-vad..." -ForegroundColor Cyan
 & $PythonExe -m pip install silero-vad
 
 Write-Host "Running PyInstaller..." -ForegroundColor Cyan
+# Help the spec file locate the backend root reliably.
+$env:OPEN_LLM_VTUBER_BACKEND_ROOT = $BackendRoot.Path
 & $PythonExe -m PyInstaller .\\pyinstaller\\open_llm_vtuber_backend.spec --noconfirm --clean
 
 $BuiltDir = Join-Path $BackendRoot "dist\\open-llm-vtuber-backend"

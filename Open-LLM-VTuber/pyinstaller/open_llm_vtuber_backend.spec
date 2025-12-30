@@ -13,7 +13,11 @@
 from pathlib import Path
 import os
 
-project_root = Path(__file__).resolve().parents[1]
+# NOTE:
+# PyInstaller executes spec files via exec() and does not guarantee `__file__` is defined
+# across versions/environments. Use an explicit env var override, otherwise assume the
+# current working directory is the backend repo root (our CI runs PyInstaller from there).
+project_root = Path(os.environ.get("OPEN_LLM_VTUBER_BACKEND_ROOT", Path.cwd())).resolve()
 
 block_cipher = None
 
