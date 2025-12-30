@@ -47,6 +47,16 @@ Write-Host "Installing torch (CPU wheels)..." -ForegroundColor Cyan
 Write-Host "Installing silero-vad..." -ForegroundColor Cyan
 & $PythonExe -m pip install silero-vad
 
+# CRITICAL: Reinstall tomli from SOURCE (not wheel) to avoid mypyc bundling issues
+# The mypyc-compiled tomli has hash-named modules that PyInstaller can't detect
+Write-Host "Reinstalling tomli from source (avoiding mypyc)..." -ForegroundColor Cyan
+& $PythonExe -m pip uninstall -y tomli 2>$null
+& $PythonExe -m pip install tomli --no-binary tomli
+
+# Debug: Show what mypyc files exist
+Write-Host "Checking for mypyc files in site-packages..." -ForegroundColor Yellow
+& $PythonExe -c "import site, glob, os; [print(f) for sp in site.getsitepackages() for f in glob.glob(os.path.join(sp, '**', '*mypyc*'), recursive=True)]"
+
 Write-Host "Running PyInstaller..." -ForegroundColor Cyan
 # Help the spec file locate the backend root reliably.
 $env:OPEN_LLM_VTUBER_BACKEND_ROOT = $BackendRoot.Path
