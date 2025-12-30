@@ -36,7 +36,9 @@ jobs:
         run: |
           cd Open-LLM-VTuber
           # Build backend exe and copy payload into ../Open-LLM-VTuber-Web/backend-dist
-          powershell -ExecutionPolicy Bypass -File .\scripts\build_backend_win.ps1
+          # Capture logs to a file so we can inspect failures easily.
+          powershell -ExecutionPolicy Bypass -File .\scripts\build_backend_win.ps1 2>&1 | Tee-Object -FilePath ..\backend-build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install Electron deps
         working-directory: Open-LLM-VTuber-Web
@@ -57,6 +59,15 @@ jobs:
             Open-LLM-VTuber-Web/release/*/*-setup.exe
             Open-LLM-VTuber-Web/release/*/*-Setup.exe
           if-no-files-found: error
+
+      - name: Upload build logs (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            backend-build.log
+          if-no-files-found: ignore
 
       # Also publish to a GitHub Release so you can share a direct download link
       # without requiring the recipient to have access to Actions artifacts.
