@@ -52,6 +52,8 @@ jobs:
           # Provide tokens in case any publisher code path still tries to auth
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Enable debug logging via env var (electron-builder uses DEBUG env)
+          DEBUG: electron-builder
         shell: pwsh
         run: |
           Write-Host "=== Building Electron frontend ===" -ForegroundColor Cyan
@@ -65,8 +67,7 @@ jobs:
           Get-ChildItem -Path backend-dist -Recurse | Select-Object -First 50 | ForEach-Object { Write-Host $_.FullName }
           
           Write-Host "=== Running electron-builder ===" -ForegroundColor Cyan
-          # Use space syntax (--publish never) and debug logging for diagnosis
-          npx electron-builder --win --publish never --log-level debug 2>&1 | Tee-Object -Append -FilePath ..\electron-build.log
+          npx electron-builder --win --publish never 2>&1 | Tee-Object -Append -FilePath ..\electron-build.log
           if ($LASTEXITCODE -ne 0) {
             Write-Host "Electron builder failed with exit code $LASTEXITCODE" -ForegroundColor Red
             exit $LASTEXITCODE
