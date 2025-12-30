@@ -49,7 +49,9 @@ jobs:
         env:
           # Avoid flaky electron binary mirrors; use official default
           ELECTRON_GET_USE_PROXY: "false"
-        run: npm run build:win
+        run: |
+          npm run build
+          npx electron-builder --win --publish=never
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
