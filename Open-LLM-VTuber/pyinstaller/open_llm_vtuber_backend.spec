@@ -12,6 +12,7 @@
 
 from pathlib import Path
 import os
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 # NOTE:
 # PyInstaller executes spec files via exec() and does not guarantee `__file__` is defined
@@ -27,6 +28,34 @@ def rel(p: str) -> str:
 
 INCLUDE_OFFLINE_MODELS = os.environ.get("OPEN_LLM_VTUBER_INCLUDE_OFFLINE_MODELS", "0") == "1"
 
+# =============================================================================
+# Collect mypyc-compiled packages
+# These packages use mypyc for performance and have dynamically named modules
+# that PyInstaller can't automatically detect (e.g., '3c22db458360489351e4__mypyc')
+# =============================================================================
+mypyc_packages = ['tomli', 'black', 'mypy', 'mypyc']
+
+extra_datas = []
+extra_binaries = []
+extra_hiddenimports = []
+
+for pkg in mypyc_packages:
+    try:
+        pkg_datas, pkg_binaries, pkg_hiddenimports = collect_all(pkg)
+        extra_datas.extend(pkg_datas)
+        extra_binaries.extend(pkg_binaries)
+        extra_hiddenimports.extend(pkg_hiddenimports)
+    except Exception:
+        # Package might not be installed, skip it
+        pass
+
+# Also collect all submodules from key packages that may have complex imports
+for pkg in ['uvicorn', 'starlette', 'fastapi', 'pydantic', 'pydantic_core', 'anthropic', 'openai', 'httpx', 'httpcore']:
+    try:
+        extra_hiddenimports.extend(collect_submodules(pkg))
+    except Exception:
+        pass
+
 datas = [
     (rel("conf.yaml"), "."),
     (rel("model_dict.json"), "."),
@@ -40,6 +69,9 @@ datas = [
     (rel("web_tool"), "web_tool"),
 ]
 
+# Add collected mypyc datas
+datas.extend(extra_datas)
+
 # Offline model cache can be >1GB. Only include if explicitly requested.
 if INCLUDE_OFFLINE_MODELS and (project_root / "models").exists():
     datas.append((rel("models"), "models"))
@@ -48,9 +80,9 @@ if INCLUDE_OFFLINE_MODELS and (project_root / "models").exists():
 a = Analysis(
     [rel("run_server.py")],
     pathex=[str(project_root)],
-    binaries=[],
+    binaries=extra_binaries,
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=extra_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
