@@ -5,6 +5,9 @@ on:
   push:
     branches: [ "main", "master" ]
 
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -54,5 +57,17 @@ jobs:
             Open-LLM-VTuber-Web/release/*/*-setup.exe
             Open-LLM-VTuber-Web/release/*/*-Setup.exe
           if-no-files-found: error
+
+      # Also publish to a GitHub Release so you can share a direct download link
+      # without requiring the recipient to have access to Actions artifacts.
+      - name: Publish to GitHub Release (windows-latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: windows-latest
+          name: Windows installer (latest)
+          prerelease: true
+          files: |
+            Open-LLM-VTuber-Web/release/*/*-setup.exe
+            Open-LLM-VTuber-Web/release/*/*-Setup.exe
 
 
