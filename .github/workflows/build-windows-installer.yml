@@ -77,9 +77,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: |
-            Open-LLM-VTuber-Web/release/*/*-setup.exe
-            Open-LLM-VTuber-Web/release/*/*-Setup.exe
+          path: Open-LLM-VTuber-Web/release/*/*.exe
           if-no-files-found: error
 
       - name: Upload build logs (always)
@@ -100,8 +98,8 @@ jobs:
           tag_name: windows-latest
           name: Windows installer (latest)
           prerelease: true
-          files: |
-            Open-LLM-VTuber-Web/release/*/*-setup.exe
-            Open-LLM-VTuber-Web/release/*/*-Setup.exe
+          # Use single pattern (Windows is case-insensitive, both patterns matched same file)
+          files: Open-LLM-VTuber-Web/release/*/*.exe
+          fail_on_unmatched_files: false
 
 
