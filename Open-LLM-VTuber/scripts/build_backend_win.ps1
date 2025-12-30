@@ -15,15 +15,14 @@ Set-Location $BackendRoot
 Write-Host "Backend root: $BackendRoot"
 
 & $PythonExe -m pip install --upgrade pip
+& $PythonExe -m pip install --upgrade wheel setuptools
 & $PythonExe -m pip install --upgrade pyinstaller
 
-# Install backend dependencies.
-# If you prefer uv on Windows, you can replace this with: uv sync
-if (Test-Path ".\\requirements.txt") {
-  & $PythonExe -m pip install -r .\\requirements.txt
-} else {
-  Write-Host "WARNING: requirements.txt not found. Ensure deps are installed before continuing." -ForegroundColor Yellow
-}
+# Install backend dependencies WITH transitive deps.
+# IMPORTANT: requirements.txt in this repo is generated with `--no-deps`, so it is NOT sufficient
+# for a clean Windows build. Install from pyproject.toml instead.
+Write-Host "Installing backend dependencies from pyproject.toml..." -ForegroundColor Cyan
+& $PythonExe -m pip install -e .
 
 Write-Host "Running PyInstaller..." -ForegroundColor Cyan
 & $PythonExe -m PyInstaller .\\pyinstaller\\open_llm_vtuber_backend.spec --noconfirm --clean
