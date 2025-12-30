@@ -1,0 +1,173 @@
+[
+    {
+        "name": "natori",
+        "description": "Luna - Professional AI Assistant with natural expressions",
+        "url": "/live2d-models/Natori/Natori.model3.json",
+        "kScale": 0.35,
+        "initialXshift": 0,
+        "initialYshift": -50,
+        "idleMotionGroupName": "Idle",
+        "defaultEmotion": "Normal",
+        "emotionMap": {
+            "neutral": "Normal",
+            "anger": "Angry",
+            "disgust": "Angry",
+            "fear": "Surprised",
+            "joy": "Smile",
+            "happy": "Smile",
+            "smirk": "Blushing",
+            "sadness": "Sad",
+            "surprise": "Surprised",
+            "thinking": "Normal",
+            "love": "Blushing",
+            "embarrassed": "Blushing"
+        },
+        "tapMotions": {
+            "HitAreaHead": {
+                "TapBody": 100
+            },
+            "HitAreaBody": {
+                "TapBody": 100
+            }
+        }
+    },
+    {
+        "name": "haru",
+        "description": "Haru - Expressive Female Character with rich animations",
+        "url": "/live2d-models/Haru/Haru.model3.json",
+        "kScale": 0.3,
+        "initialXshift": 0,
+        "initialYshift": -30,
+        "idleMotionGroupName": "Idle",
+        "defaultEmotion": "F01",
+        "emotionMap": {
+            "neutral": "F01",
+            "anger": "F03",
+            "disgust": "F03",
+            "fear": "F05",
+            "joy": "F02",
+            "happy": "F02",
+            "smirk": "F04",
+            "sadness": "F06",
+            "surprise": "F07",
+            "thinking": "F08",
+            "love": "F04",
+            "embarrassed": "F05"
+        },
+        "tapMotions": {
+            "Head": {
+                "TapBody": 100
+            },
+            "Body": {
+                "TapBody": 100
+            }
+        }
+    },
+    {
+        "name": "mao_official",
+        "description": "Mao - Cute Witch with magical expressions",
+        "url": "/live2d-models/Mao_official/Mao.model3.json",
+        "kScale": 0.35,
+        "initialXshift": 0,
+        "initialYshift": 0,
+        "idleMotionGroupName": "Idle",
+        "defaultEmotion": "exp_01",
+        "emotionMap": {
+            "neutral": "exp_01",
+            "anger": "exp_03",
+            "disgust": "exp_03",
+            "fear": "exp_05",
+            "joy": "exp_02",
+            "happy": "exp_02",
+            "smirk": "exp_04",
+            "sadness": "exp_06",
+            "surprise": "exp_07",
+            "thinking": "exp_08",
+            "love": "exp_04",
+            "embarrassed": "exp_05"
+        },
+        "tapMotions": {
+            "HitAreaHead": {
+                "TapBody": 100
+            },
+            "HitAreaBody": {
+                "TapBody": 100
+            }
+        }
+    },
+    {
+        "name": "mao_pro",
+        "description": "Mao Pro - Premium witch character (casual style)",
+        "url": "/live2d-models/mao_pro/runtime/mao_pro.model3.json",
+        "kScale": 0.5,
+        "initialXshift": 0,
+        "initialYshift": 0,
+        "kXOffset": 1150,
+        "idleMotionGroupName": "Idle",
+        "defaultEmotion": 0,
+        "emotionMap": {
+            "neutral": 0,
+            "anger": 2,
+            "disgust": 2,
+            "fear": 1,
+            "joy": 3,
+            "happy": 3,
+            "smirk": 3,
+            "sadness": 1,
+            "surprise": 3,
+            "thinking": 0,
+            "love": 3,
+            "embarrassed": 1
+        },
+        "tapMotions": {
+            "HitAreaHead": {
+                "": 1
+            },
+            "HitAreaBody": {
+                "": 1
+            }
+        }
+    },
+    {
+        "name": "hiyori",
+        "description": "Hiyori - Professional Office Woman",
+        "url": "/live2d-models/hiyori/Hiyori.model3.json",
+        "kScale": 0.4,
+        "initialXshift": 0,
+        "initialYshift": 0,
+        "idleMotionGroupName": "Idle",
+        "defaultEmotion": 0,
+        "emotionMap": {
+            "neutral": 0,
+            "joy": 0,
+            "happy": 0,
+            "thinking": 0
+        },
+        "tapMotions": {
+            "Body": {
+                "TapBody": 100
+            }
+        }
+    },
+    {
+        "name": "shizuku",
+        "description": "Shizuku - Classic elegant character",
+        "url": "/live2d-models/shizuku/runtime/shizuku.model3.json",
+        "kScale": 0.35,
+        "initialXshift": 0,
+        "initialYshift": 0,
+        "idleMotionGroupName": "Idle",
+        "defaultEmotion": 0,
+        "emotionMap": {
+            "neutral": 0,
+            "joy": 0,
+            "happy": 0,
+            "thinking": 0
+        },
+        "tapMotions": {
+            "Tap": {
+                "": 100
+            }
+        }
+    }
+]

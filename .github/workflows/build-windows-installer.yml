@@ -1,0 +1,58 @@
+name: Build Windows installer (one-file share)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            Open-LLM-VTuber-Web/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Build backend (PyInstaller)
+        shell: pwsh
+        run: |
+          cd Open-LLM-VTuber
+          # Build backend exe and copy payload into ../Open-LLM-VTuber-Web/backend-dist
+          powershell -ExecutionPolicy Bypass -File .\scripts\build_backend_win.ps1
+
+      - name: Install Electron deps
+        working-directory: Open-LLM-VTuber-Web
+        run: npm ci
+
+      - name: Build Windows installer (NSIS)
+        working-directory: Open-LLM-VTuber-Web
+        env:
+          # Avoid flaky electron binary mirrors; use official default
+          ELECTRON_GET_USE_PROXY: "false"
+        run: npm run build:win
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            Open-LLM-VTuber-Web/release/*/*-setup.exe
+            Open-LLM-VTuber-Web/release/*/*-Setup.exe
+          if-no-files-found: error
+
+

@@ -1,0 +1,38 @@
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# Logs / caches
+**/logs/
+**/*.log
+**/cache/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Python envs
+.venv/
+venv/
+
+# Node / Electron
+**/node_modules/
+**/dist/
+**/out/
+**/release/
+**/.vite/
+**/*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+
+# Project-specific: runtime outputs (keep repo lean)
+Open-LLM-VTuber/chat_history/
+Open-LLM-VTuber/output/
+
+# Huge offline model cache (not needed when using OpenAI ASR/TTS/LLM)
+Open-LLM-VTuber/models/
+
+

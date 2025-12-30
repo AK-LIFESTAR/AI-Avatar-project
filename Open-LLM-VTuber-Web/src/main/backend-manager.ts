@@ -1,0 +1,231 @@
+import { app, dialog } from 'electron';
+import { spawn, ChildProcess } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import net from 'net';
+
+type BackendState = 'stopped' | 'starting' | 'running';
+
+export class BackendManager {
+  private proc: ChildProcess | null = null;
+  private state: BackendState = 'stopped';
+
+  private readonly host = '127.0.0.1';
+  private readonly port = 12393;
+
+  /**
+   * Backend directory on disk.
+   * - In dev: a repo checkout (env override supported)
+   * - In packaged builds: copied from resources into a writable userData folder
+   */
+  private readonly backendDir: string;
+
+  constructor() {
+    this.backendDir = this.resolveBackendDir();
+  }
+
+  private resolveBackendDir(): string {
+    // Allow explicit override for power users / debugging.
+    if (process.env.OPEN_LLM_VTUBER_BACKEND_DIR) {
+      return process.env.OPEN_LLM_VTUBER_BACKEND_DIR;
+    }
+
+    // Packaged app: backend is shipped inside the app resources and must be copied
+    // to a writable location (Program Files is read-only for normal users on Windows).
+    if (app.isPackaged) {
+      return path.join(app.getPath('userData'), 'backend');
+    }
+
+    // Dev fallback: try to locate backend as a sibling folder next to this repo.
+    // __dirname in dev typically points to: Open-LLM-VTuber-Web/out/main
+    const candidateSibling = path.resolve(__dirname, '..', '..', '..', 'Open-LLM-VTuber');
+    if (fs.existsSync(candidateSibling)) return candidateSibling;
+
+    // Last resort: current working dir based guess
+    const candidateCwdSibling = path.resolve(process.cwd(), '..', 'Open-LLM-VTuber');
+    if (fs.existsSync(candidateCwdSibling)) return candidateCwdSibling;
+
+    return candidateSibling;
+  }
+
+  private getBundledBackendSourceDir(): string {
+    // In packaged builds, electron-builder will place extraResources at:
+    //   <resourcesPath>/backend
+    return path.join(process.resourcesPath, 'backend');
+  }
+
+  private ensureBackendAvailable(): void {
+    if (!app.isPackaged) return;
+
+    // If user set OPEN_LLM_VTUBER_BACKEND_DIR, we assume they manage it.
+    if (process.env.OPEN_LLM_VTUBER_BACKEND_DIR) return;
+
+    const sourceDir = this.getBundledBackendSourceDir();
+    const targetDir = this.backendDir;
+
+    if (!fs.existsSync(sourceDir)) {
+      dialog.showErrorBox(
+        'Bundled backend missing',
+        `Packaged app expected a bundled backend at:\n\n${sourceDir}\n\nRebuild the installer including backend files.`,
+      );
+      return;
+    }
+
+    // Copy once (or if missing). Keep it simple: overwrite on each run if you want updates,
+    // but for now we only populate the folder if it doesn't exist.
+    if (!fs.existsSync(targetDir)) {
+      try {
+        fs.mkdirSync(path.dirname(targetDir), { recursive: true });
+        fs.cpSync(sourceDir, targetDir, { recursive: true });
+      } catch (e: any) {
+        dialog.showErrorBox(
+          'Failed to prepare backend',
+          `Could not copy bundled backend to writable directory:\n\n${targetDir}\n\nError:\n${e?.message || String(e)}`,
+        );
+      }
+    }
+  }
+
+  private getBackendExecutablePath(): string {
+    const exeName = process.platform === 'win32' ? 'open-llm-vtuber-backend.exe' : 'open-llm-vtuber-backend';
+    return path.join(this.backendDir, exeName);
+  }
+
+  private async isPortOpen(): Promise<boolean> {
+    return await new Promise((resolve) => {
+      const socket = new net.Socket();
+      const timeoutMs = 250;
+
+      const done = (result: boolean) => {
+        socket.removeAllListeners();
+        try {
+          socket.destroy();
+        } catch {
+          // ignore
+        }
+        resolve(result);
+      };
+
+      socket.setTimeout(timeoutMs);
+      socket.once('connect', () => done(true));
+      socket.once('timeout', () => done(false));
+      socket.once('error', () => done(false));
+      socket.connect(this.port, this.host);
+    });
+  }
+
+  private getLogFilePath(): string {
+    const dir = app.getPath('logs');
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch {
+      // ignore
+    }
+    return path.join(dir, 'open-llm-vtuber-backend.log');
+  }
+
+  async startIfNeeded(): Promise<void> {
+    if (this.state === 'starting' || this.state === 'running') return;
+
+    // If something else is already listening, don't spawn another backend.
+    if (await this.isPortOpen()) {
+      this.state = 'running';
+      return;
+    }
+
+    this.ensureBackendAvailable();
+
+    if (!fs.existsSync(this.backendDir)) {
+      dialog.showErrorBox(
+        'Backend not found',
+        `Open-LLM-VTuber backend folder was not found at:\n\n${this.backendDir}\n\nSet OPEN_LLM_VTUBER_BACKEND_DIR to point to your backend folder.`,
+      );
+      return;
+    }
+
+    this.state = 'starting';
+
+    const logPath = this.getLogFilePath();
+    const logFd = fs.openSync(logPath, 'a');
+
+    const exePath = this.getBackendExecutablePath();
+    const hasExe = fs.existsSync(exePath);
+
+    if (hasExe) {
+      // Packaged mode (preferred on Windows): run the bundled backend executable.
+      this.proc = spawn(exePath, [], {
+        cwd: this.backendDir,
+        stdio: ['ignore', logFd, logFd],
+        detached: true,
+      });
+    } else {
+      // Dev mode fallback: start backend using the user's local uv environment.
+      // Note: we intentionally do NOT run the backend unless the user launches the app.
+      const cmd =
+        process.platform === 'win32'
+          ? [`cd /d "${this.backendDir}"`, `uv run run_server.py`].join(' && ')
+          : [
+              `export PATH="$HOME/.local/bin:$PATH"`,
+              `source "$HOME/.local/bin/env" 2>/dev/null || true`,
+              `cd "${this.backendDir}"`,
+              `uv run run_server.py`,
+            ].join(' && ');
+
+      const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/zsh';
+      const shellArgs = process.platform === 'win32' ? ['/d', '/s', '/c', cmd] : ['-lc', cmd];
+
+      this.proc = spawn(shell, shellArgs, {
+        stdio: ['ignore', logFd, logFd],
+        detached: true,
+      });
+    }
+
+    // Allow the child to continue running independently; we will still try to stop it on quit.
+    this.proc.unref();
+
+    // Wait briefly for it to come up.
+    const startDeadlineMs = Date.now() + 8000;
+    while (Date.now() < startDeadlineMs) {
+      // eslint-disable-next-line no-await-in-loop
+      if (await this.isPortOpen()) {
+        this.state = 'running';
+        return;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, 250));
+    }
+
+    this.state = 'stopped';
+    dialog.showErrorBox(
+      'Backend failed to start',
+      `Tried to start backend but it did not open port ${this.port}.\n\nSee log:\n${logPath}`,
+    );
+  }
+
+  stop(): void {
+    // Only stop the backend we spawned (we should not kill a user-managed backend).
+    const pid = this.proc?.pid;
+    this.proc = null;
+    this.state = 'stopped';
+
+    if (!pid) return;
+
+    try {
+      if (process.platform === 'win32') {
+        // Windows: best-effort kill the whole process tree.
+        spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' });
+      } else {
+        // POSIX: kill the whole process group (detached).
+        process.kill(-pid, 'SIGTERM');
+      }
+    } catch {
+      try {
+        process.kill(pid, 'SIGTERM');
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
+
