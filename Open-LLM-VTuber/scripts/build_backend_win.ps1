@@ -82,6 +82,17 @@ Get-ChildItem -Path $TargetDir -Force | Where-Object { $_.Name -ne "README.txt" 
 
 Copy-Item -Path (Join-Path $BuiltDir "*") -Destination $TargetDir -Recurse -Force
 
+#
+# Write a build id file so the Electron app can detect backend updates and refresh
+# the cached backend under %AppData%\<app>\backend.
+#
+$BuildId = $env:GITHUB_SHA
+if (-not $BuildId) {
+  $BuildId = (Get-Date -Format "yyyyMMdd-HHmmss")
+}
+Set-Content -Path (Join-Path $TargetDir "backend-build-id.txt") -Value $BuildId -Encoding utf8
+Write-Host "Backend build id: $BuildId" -ForegroundColor Cyan
+
 Write-Host "✅ Done. Now build the Windows installer in Open-LLM-VTuber-Web:" -ForegroundColor Green
 Write-Host "   cd ..\\Open-LLM-VTuber-Web" -ForegroundColor Green
 Write-Host "   npm install" -ForegroundColor Green

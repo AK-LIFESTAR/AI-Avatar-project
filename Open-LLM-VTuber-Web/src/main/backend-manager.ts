@@ -24,6 +24,20 @@ export class BackendManager {
     this.backendDir = this.resolveBackendDir();
   }
 
+  private getBuildIdFilePath(dir: string): string {
+    return path.join(dir, 'backend-build-id.txt');
+  }
+
+  private readBuildId(dir: string): string | null {
+    try {
+      const p = this.getBuildIdFilePath(dir);
+      if (!fs.existsSync(p)) return null;
+      return fs.readFileSync(p, 'utf8').trim() || null;
+    } catch {
+      return null;
+    }
+  }
+
   private resolveBackendDir(): string {
     // Allow explicit override for power users / debugging.
     if (process.env.OPEN_LLM_VTUBER_BACKEND_DIR) {
@@ -71,18 +85,33 @@ export class BackendManager {
       return;
     }
 
-    // Copy once (or if missing). Keep it simple: overwrite on each run if you want updates,
-    // but for now we only populate the folder if it doesn't exist.
-    if (!fs.existsSync(targetDir)) {
-      try {
-        fs.mkdirSync(path.dirname(targetDir), { recursive: true });
-        fs.cpSync(sourceDir, targetDir, { recursive: true });
-      } catch (e: any) {
-        dialog.showErrorBox(
-          'Failed to prepare backend',
-          `Could not copy bundled backend to writable directory:\n\n${targetDir}\n\nError:\n${e?.message || String(e)}`,
-        );
-      }
+    // IMPORTANT:
+    // We must update the cached backend when the installer updates. Otherwise users will
+    // keep running an old (possibly broken) backend from %AppData% forever.
+    //
+    // We do this by comparing a build id file shipped alongside the backend payload.
+    const sourceBuildId = this.readBuildId(sourceDir);
+    const targetBuildId = this.readBuildId(targetDir);
+
+    const needsCopy =
+      !fs.existsSync(targetDir) ||
+      // If build id is missing on either side, fall back to re-copying to be safe.
+      !sourceBuildId ||
+      !targetBuildId ||
+      sourceBuildId !== targetBuildId;
+
+    if (!needsCopy) return;
+
+    try {
+      fs.mkdirSync(path.dirname(targetDir), { recursive: true });
+      // Clear existing cached backend before copying new payload.
+      fs.rmSync(targetDir, { recursive: true, force: true });
+      fs.cpSync(sourceDir, targetDir, { recursive: true });
+    } catch (e: any) {
+      dialog.showErrorBox(
+        'Failed to prepare backend',
+        `Could not copy bundled backend to writable directory:\n\n${targetDir}\n\nError:\n${e?.message || String(e)}`,
+      );
     }
   }
 
