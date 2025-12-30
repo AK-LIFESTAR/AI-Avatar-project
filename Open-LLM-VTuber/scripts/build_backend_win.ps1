@@ -18,11 +18,34 @@ Write-Host "Backend root: $BackendRoot"
 & $PythonExe -m pip install --upgrade wheel setuptools
 & $PythonExe -m pip install --upgrade pyinstaller
 
-# Install backend dependencies WITH transitive deps.
-# IMPORTANT: requirements.txt in this repo is generated with `--no-deps`, so it is NOT sufficient
-# for a clean Windows build. Install from pyproject.toml instead.
-Write-Host "Installing backend dependencies from pyproject.toml..." -ForegroundColor Cyan
-& $PythonExe -m pip install -e .
+# Install backend dependencies.
+#
+# NOTE:
+# - requirements.txt is generated from pyproject, but includes a pinned torch version that may not
+#   have Windows wheels at the time of building.
+# - For CI stability, we install all requirements EXCEPT torch, then install torch from the official
+#   PyTorch CPU wheel index.
+#
+Write-Host "Installing backend dependencies from requirements.txt (excluding torch)..." -ForegroundColor Cyan
+
+$ReqPath = Join-Path $BackendRoot "requirements.txt"
+if (!(Test-Path $ReqPath)) {
+  throw "requirements.txt not found at: $ReqPath"
+}
+
+$ReqWin = Join-Path $BackendRoot "requirements.win-ci.txt"
+Get-Content $ReqPath |
+  Where-Object { $_ -notmatch '^\s*torch==' } |
+  Set-Content -Path $ReqWin -Encoding utf8
+
+& $PythonExe -m pip install -r $ReqWin
+
+Write-Host "Installing torch (CPU wheels)..." -ForegroundColor Cyan
+& $PythonExe -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+
+# Our current config uses silero_vad; ensure it's installed even if requirements.txt wasn't updated.
+Write-Host "Installing silero-vad..." -ForegroundColor Cyan
+& $PythonExe -m pip install silero-vad
 
 Write-Host "Running PyInstaller..." -ForegroundColor Cyan
 & $PythonExe -m PyInstaller .\\pyinstaller\\open_llm_vtuber_backend.spec --noconfirm --clean
