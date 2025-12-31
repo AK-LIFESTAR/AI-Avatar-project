@@ -122,6 +122,21 @@ export class BackendManager {
     return path.join(this.backendDir, exeName);
   }
 
+  /**
+   * Check if we have embedded Python (more compatible with corporate security).
+   * Embedded Python bundle contains: python.exe + run_server.py
+   */
+  private hasEmbeddedPython(): boolean {
+    if (process.platform !== 'win32') return false;
+    const pythonExe = path.join(this.backendDir, 'python.exe');
+    const runServer = path.join(this.backendDir, 'run_server.py');
+    return fs.existsSync(pythonExe) && fs.existsSync(runServer);
+  }
+
+  private getEmbeddedPythonPath(): string {
+    return path.join(this.backendDir, 'python.exe');
+  }
+
   private async isPortOpen(): Promise<boolean> {
     return await new Promise((resolve) => {
       const socket = new net.Socket();
@@ -152,7 +167,7 @@ export class BackendManager {
     } catch {
       // ignore
     }
-    return path.join(dir, 'open-llm-vtuber-backend.log');
+    return path.join(dir, 'backend-server.log');
   }
 
   private readLogTail(logPath: string, maxChars = 8000): string | null {
@@ -192,19 +207,44 @@ export class BackendManager {
     const logPath = this.getLogFilePath();
     const logFd = fs.openSync(logPath, 'a');
 
+    // Strategy priority:
+    // 1. Embedded Python (most compatible with corporate security)
+    // 2. PyInstaller exe (legacy, may be blocked by antivirus)
+    // 3. Dev mode fallback (uv run)
+
+    const hasEmbeddedPython = this.hasEmbeddedPython();
     const exePath = this.getBackendExecutablePath();
     const hasExe = fs.existsSync(exePath);
 
-    if (hasExe) {
-      // Packaged mode (preferred on Windows): run the bundled backend executable.
+    if (hasEmbeddedPython) {
+      // PREFERRED: Embedded Python - uses official Python interpreter
+      // This is much more compatible with corporate security software
+      // because python.exe is a well-known signed executable.
+      const pythonExe = this.getEmbeddedPythonPath();
+      console.log(`Starting backend with embedded Python: ${pythonExe}`);
+      this.proc = spawn(pythonExe, ['run_server.py'], {
+        cwd: this.backendDir,
+        stdio: ['ignore', logFd, logFd],
+        detached: true,
+        // Set environment to help Python find modules
+        env: {
+          ...process.env,
+          PYTHONPATH: this.backendDir,
+          // Disable Python's user site-packages to avoid conflicts
+          PYTHONNOUSERSITE: '1',
+        },
+      });
+    } else if (hasExe) {
+      // LEGACY: PyInstaller executable (may be blocked by antivirus)
+      console.log(`Starting backend with PyInstaller exe: ${exePath}`);
       this.proc = spawn(exePath, [], {
         cwd: this.backendDir,
         stdio: ['ignore', logFd, logFd],
         detached: true,
       });
     } else {
-      // Dev mode fallback: start backend using the user's local uv environment.
-      // Note: we intentionally do NOT run the backend unless the user launches the app.
+      // DEV MODE: Use local uv environment
+      console.log('Starting backend in dev mode with uv');
       const cmd =
         process.platform === 'win32'
           ? [`cd /d "${this.backendDir}"`, `uv run run_server.py`].join(' && ')

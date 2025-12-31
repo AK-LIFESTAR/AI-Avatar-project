@@ -1,4 +1,4 @@
-name: Build Windows installer (one-file share)
+name: Build Windows installer (Project A Prototype)
 
 on:
   workflow_dispatch:
@@ -25,19 +25,18 @@ jobs:
           cache-dependency-path: |
             Open-LLM-VTuber-Web/package-lock.json
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
+      # Note: We don't need to setup Python here anymore because
+      # the embedded Python build script downloads Python embeddable package
 
-      - name: Build backend (PyInstaller)
+      - name: Build backend (Embedded Python)
         shell: pwsh
+        env:
+          GITHUB_SHA: ${{ github.sha }}
         run: |
           cd Open-LLM-VTuber
-          # Build backend exe and copy payload into ../Open-LLM-VTuber-Web/backend-dist
-          # Capture logs to a file so we can inspect failures easily.
-          powershell -ExecutionPolicy Bypass -File .\scripts\build_backend_win.ps1 2>&1 | Tee-Object -FilePath ..\backend-build.log
+          # Build backend using embedded Python (more compatible with corporate security)
+          # This downloads Python embeddable and bundles it with all dependencies
+          powershell -ExecutionPolicy Bypass -File .\scripts\build_backend_embedded_python.ps1 2>&1 | Tee-Object -FilePath ..\backend-build.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install Electron deps
@@ -63,8 +62,15 @@ jobs:
             exit $LASTEXITCODE
           }
           
-          Write-Host "=== Listing backend-dist contents ===" -ForegroundColor Cyan
-          Get-ChildItem -Path backend-dist -Recurse | Select-Object -First 50 | ForEach-Object { Write-Host $_.FullName }
+          Write-Host "=== Listing backend-dist contents (first 30 items) ===" -ForegroundColor Cyan
+          Get-ChildItem -Path backend-dist -Recurse | Select-Object -First 30 | ForEach-Object { Write-Host $_.FullName }
+          
+          Write-Host "=== Checking for python.exe in backend-dist ===" -ForegroundColor Cyan
+          if (Test-Path "backend-dist\python.exe") {
+            Write-Host "✅ Found python.exe (embedded Python mode)" -ForegroundColor Green
+          } else {
+            Write-Host "⚠️ No python.exe found" -ForegroundColor Yellow
+          }
           
           Write-Host "=== Running electron-builder ===" -ForegroundColor Cyan
           npx electron-builder --win --publish never 2>&1 | Tee-Object -Append -FilePath ..\electron-build.log
@@ -96,10 +102,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: windows-latest
-          name: Windows installer (latest)
+          name: Project A Prototype - Windows installer (latest)
           prerelease: true
           # Use single pattern (Windows is case-insensitive, both patterns matched same file)
           files: Open-LLM-VTuber-Web/release/*/*.exe
           fail_on_unmatched_files: false
-
 
