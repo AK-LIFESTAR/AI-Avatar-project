@@ -3,12 +3,30 @@
 from ruamel.yaml import YAML
 from src.open_llm_vtuber.config_manager.utils import load_text_file_with_guess_encoding
 import os
+import sys
+from pathlib import Path
 
-USER_CONF = "conf.yaml"
-BACKUP_CONF = "conf.yaml.backup"
 
-ZH_DEFAULT_CONF = "config_templates/conf.ZH.default.yaml"
-EN_DEFAULT_CONF = "config_templates/conf.default.yaml"
+def _get_base_dir() -> Path:
+    """
+    Runtime base directory.
+
+    - Normal python run: project root (Open-LLM-VTuber)
+    - PyInstaller: folder containing the executable
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    # constants.py lives at: <root>/upgrade_codes/upgrade_core/constants.py
+    return Path(__file__).resolve().parents[2]
+
+
+BASE_DIR = _get_base_dir()
+
+USER_CONF = str(BASE_DIR / "conf.yaml")
+BACKUP_CONF = str(BASE_DIR / "conf.yaml.backup")
+
+ZH_DEFAULT_CONF = str(BASE_DIR / "config_templates" / "conf.ZH.default.yaml")
+EN_DEFAULT_CONF = str(BASE_DIR / "config_templates" / "conf.default.yaml")
 
 yaml = YAML()
 # user_config = yaml.load(load_text_file_with_guess_encoding(USER_CONF))

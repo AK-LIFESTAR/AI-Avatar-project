@@ -7,10 +7,27 @@ import os
 import re
 import chardet
 from loguru import logger
+import sys
 
 from .main import Config
 
 T = TypeVar("T", bound=BaseModel)
+
+
+def _get_base_dir() -> Path:
+    """
+    Runtime base directory for resolving bundled resources.
+
+    - Normal python run: project root (Open-LLM-VTuber)
+    - PyInstaller: folder containing the executable
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    # utils.py lives at: <root>/src/open_llm_vtuber/config_manager/utils.py
+    return Path(__file__).resolve().parents[3]
+
+
+BASE_DIR = _get_base_dir()
 
 
 def read_yaml(config_path: str) -> Dict[str, Any]:
@@ -29,10 +46,18 @@ def read_yaml(config_path: str) -> Dict[str, Any]:
         IOError: If the configuration file cannot be read.
     """
 
-    if not os.path.exists(config_path):
+    # Allow packaged builds to work even if process CWD isn't the backend folder.
+    # If a relative path isn't found, try resolving it against our runtime base dir.
+    resolved_path = config_path
+    if not os.path.exists(resolved_path) and not os.path.isabs(resolved_path):
+        candidate = str(BASE_DIR / resolved_path)
+        if os.path.exists(candidate):
+            resolved_path = candidate
+
+    if not os.path.exists(resolved_path):
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
-    content = load_text_file_with_guess_encoding(config_path)
+    content = load_text_file_with_guess_encoding(resolved_path)
     if not content:
         raise IOError(f"Failed to read configuration file: {config_path}")
 

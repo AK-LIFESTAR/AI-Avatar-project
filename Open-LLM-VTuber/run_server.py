@@ -172,7 +172,8 @@ def run(console_log_level: str):
     atexit.register(WebSocketServer.clean_cache)
 
     # Load configurations from yaml file
-    config: Config = validate_config(read_yaml("conf.yaml"))
+    # Use absolute path so packaged builds don't depend on process working directory.
+    config: Config = validate_config(read_yaml(str(BASE_DIR / "conf.yaml")))
     server_config = config.system_config
 
     if server_config.enable_proxy:
