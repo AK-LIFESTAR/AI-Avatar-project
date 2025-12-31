@@ -38,6 +38,9 @@ dependencies = [
     "tqdm>=4.67.1",
     "uvicorn[standard]>=0.33.0",
     "websocket-client>=1.8.0",
+    # Used by Hume AI agent (and also pulled in via uvicorn[standard] extra on some platforms),
+    # but we declare it explicitly so packaging doesn't miss it.
+    "websockets>=14.1",
     "letta-client>=0.1.100",
     "duckduckgo-mcp-server>=0.1.1",
     "silero-vad>=6.2.0",
