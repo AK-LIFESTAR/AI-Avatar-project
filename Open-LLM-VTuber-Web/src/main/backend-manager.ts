@@ -9,6 +9,8 @@ type BackendState = 'stopped' | 'starting' | 'running';
 export class BackendManager {
   private proc: ChildProcess | null = null;
   private state: BackendState = 'stopped';
+  private lastSpawnError: string | null = null;
+  private lastExit: { code: number | null; signal: NodeJS.Signals | null } | null = null;
 
   private readonly host = '127.0.0.1';
   private readonly port = 12393;
@@ -153,6 +155,17 @@ export class BackendManager {
     return path.join(dir, 'open-llm-vtuber-backend.log');
   }
 
+  private readLogTail(logPath: string, maxChars = 8000): string | null {
+    try {
+      if (!fs.existsSync(logPath)) return null;
+      const content = fs.readFileSync(logPath, 'utf8');
+      if (!content) return null;
+      return content.length > maxChars ? content.slice(-maxChars) : content;
+    } catch {
+      return null;
+    }
+  }
+
   async startIfNeeded(): Promise<void> {
     if (this.state === 'starting' || this.state === 'running') return;
 
@@ -173,6 +186,8 @@ export class BackendManager {
     }
 
     this.state = 'starting';
+    this.lastSpawnError = null;
+    this.lastExit = null;
 
     const logPath = this.getLogFilePath();
     const logFd = fs.openSync(logPath, 'a');
@@ -209,25 +224,45 @@ export class BackendManager {
       });
     }
 
+    // Capture immediate spawn failures and early exits (common when a Python dependency is missing).
+    this.proc.on('error', (err) => {
+      this.lastSpawnError = err?.message || String(err);
+    });
+    this.proc.on('exit', (code, signal) => {
+      this.lastExit = { code, signal };
+    });
+
     // Allow the child to continue running independently; we will still try to stop it on quit.
     this.proc.unref();
 
     // Wait briefly for it to come up.
-    const startDeadlineMs = Date.now() + 8000;
+    // First launch can take longer on slower machines (model loading, disk IO, etc).
+    const startDeadlineMs = Date.now() + 60000;
     while (Date.now() < startDeadlineMs) {
       // eslint-disable-next-line no-await-in-loop
       if (await this.isPortOpen()) {
         this.state = 'running';
         return;
       }
+      // If it failed to spawn or exited early, don't keep waiting.
+      if (this.lastSpawnError || this.lastExit) break;
       // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, 250));
     }
 
     this.state = 'stopped';
+    const tail = this.readLogTail(logPath);
+    const extra =
+      this.lastSpawnError
+        ? `\n\nSpawn error:\n${this.lastSpawnError}`
+        : this.lastExit
+          ? `\n\nBackend exited early:\ncode=${this.lastExit.code} signal=${this.lastExit.signal ?? 'null'}`
+          : '';
     dialog.showErrorBox(
       'Backend failed to start',
-      `Tried to start backend but it did not open port ${this.port}.\n\nSee log:\n${logPath}`,
+      `Tried to start backend but it did not open port ${this.port} within 60 seconds.${extra}\n\nSee log:\n${logPath}${
+        tail ? `\n\n--- Log tail ---\n${tail}` : ''
+      }`,
     );
   }
 
