@@ -11,6 +11,7 @@ try:
 except ImportError:
     import tomli as tomllib  # Fallback for Python 3.10
 import uvicorn
+from importlib import metadata as importlib_metadata
 from loguru import logger
 from upgrade_codes.upgrade_manager import UpgradeManager
 
@@ -38,9 +39,22 @@ upgrade_manager = UpgradeManager()
 
 
 def get_version() -> str:
-    with open(BASE_DIR / "pyproject.toml", "rb") as f:
-        pyproject = tomllib.load(f)
-    return pyproject["project"]["version"]
+    """
+    Return application version.
+
+    In dev we read from pyproject.toml. In packaged builds, the extracted backend folder
+    may not include pyproject.toml (corporate endpoint protection / installer layouts),
+    so we fall back to package metadata and finally to "unknown".
+    """
+    try:
+        with open(BASE_DIR / "pyproject.toml", "rb") as f:
+            pyproject = tomllib.load(f)
+        return str(pyproject["project"]["version"])
+    except Exception:
+        try:
+            return importlib_metadata.version("open-llm-vtuber")
+        except Exception:
+            return "unknown"
 
 
 def init_logger(console_log_level: str = "INFO") -> None:
