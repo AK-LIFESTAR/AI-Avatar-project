@@ -4,8 +4,6 @@ from loguru import logger
 from .agents.agent_interface import AgentInterface
 from .agents.basic_memory_agent import BasicMemoryAgent
 from .stateless_llm_factory import LLMFactory as StatelessLLMFactory
-from .agents.hume_ai import HumeAIAgent
-from .agents.letta_agent import LettaAgent
 
 from ..mcpp.tool_manager import ToolManager
 from ..mcpp.tool_executor import ToolExecutor
@@ -108,6 +106,9 @@ class AgentFactory:
             )
 
         elif conversation_agent_choice == "hume_ai_agent":
+            # Lazy import so optional dependencies don't break server startup.
+            from .agents.hume_ai import HumeAIAgent
+
             settings = agent_settings.get("hume_ai_agent", {})
             return HumeAIAgent(
                 api_key=settings.get("api_key"),
@@ -117,6 +118,9 @@ class AgentFactory:
             )
 
         elif conversation_agent_choice == "letta_agent":
+            # Lazy import so optional dependencies don't break server startup.
+            from .agents.letta_agent import LettaAgent
+
             settings = agent_settings.get("letta_agent", {})
             return LettaAgent(
                 live2d_model=live2d_model,
