@@ -78,8 +78,14 @@ def init_config_routes() -> APIRouter:
             # Navigate to the LLM config section and update API key
             provider = request.provider
             
-            # Handle different possible config structures
-            agent_config = config.get("agent_config", {})
+            # The config structure is:
+            # character_config:
+            #   agent_config:
+            #     llm_configs:
+            #       openai_llm:
+            #         llm_api_key: '...'
+            character_config = config.get("character_config", {})
+            agent_config = character_config.get("agent_config", {})
             llm_configs = agent_config.get("llm_configs", {})
             
             if provider not in llm_configs:
@@ -137,7 +143,9 @@ def init_config_routes() -> APIRouter:
                 })
             
             # Check if OpenAI API key is set
-            agent_config = config.get("agent_config", {})
+            # Config structure: character_config.agent_config.llm_configs.openai_llm
+            character_config = config.get("character_config", {})
+            agent_config = character_config.get("agent_config", {})
             llm_configs = agent_config.get("llm_configs", {})
             openai_config = llm_configs.get("openai_llm", {})
             api_key = openai_config.get("llm_api_key", "")
@@ -156,6 +164,8 @@ def init_config_routes() -> APIRouter:
                 "configured": False,
                 "message": f"Error reading configuration: {str(e)}"
             })
+    
+    return router
 
 
 def init_client_ws_route(default_context_cache: ServiceContext) -> APIRouter:
