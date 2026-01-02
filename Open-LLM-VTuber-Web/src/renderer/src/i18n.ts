@@ -3,9 +3,8 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 
-// Import translation resources
+// Import translation resources (English only for now)
 import enTranslation from "./locales/en/translation.json";
-import zhTranslation from "./locales/zh/translation.json";
 
 // Configure i18next instance
 i18n
@@ -15,26 +14,24 @@ i18n
   .use(initReactI18next)
   // Initialize i18next
   .init({
-    // Default language when detection fails
+    // Default and only language - English
+    lng: "en",
     fallbackLng: "en",
     // Debug mode for development
     debug: process.env.NODE_ENV === "development",
     // Namespaces configuration
     defaultNS: "translation",
     ns: ["translation"],
-    // Resources containing translations
+    // Resources containing translations (English only for now)
     resources: {
       en: {
         translation: enTranslation,
       },
-      zh: {
-        translation: zhTranslation,
-      },
     },
-    // Language detection options
+    // Language detection options - disabled for now, force English
     detection: {
       // Order and from where user language should be detected
-      order: ["localStorage", "navigator"],
+      order: ["localStorage"],
       // Cache user language detection
       caches: ["localStorage"],
       // HTML attribute with which to set language
