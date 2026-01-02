@@ -58,7 +58,7 @@ character_config:
         # 'openai_compatible_llm', 'llama_cpp_llm', 'claude_llm', 'ollama_llm'
         # 'openai_llm', 'gemini_llm', 'zhipu_llm', 'deepseek_llm', 'groq_llm'
         # 'mistral_llm', 'lmstudio_llm', and more
-        llm_provider: 'ollama_llm'
+        llm_provider: 'openai_llm'  # Change to 'ollama_llm' if you install Ollama
         # let ai speak as soon as the first comma is received on the first sentence
         # to reduced latency.
         faster_first_response: True
@@ -141,7 +141,7 @@ character_config:
         temperature: 1.0 # value between 0 to 2
 
       openai_llm:
-        llm_api_key: 'Your Open AI API key'
+        llm_api_key: '${OPENAI_API_KEY}'  # Set via environment variable or replace with your key
         model: 'gpt-4o'
         temperature: 1.0 # value between 0 to 2
 

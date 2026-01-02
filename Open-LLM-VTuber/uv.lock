@@ -1316,6 +1316,7 @@ dependencies = [
     { name = "tqdm" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "websocket-client" },
+    { name = "websockets" },
 ]
 
 [package.optional-dependencies]
@@ -1366,6 +1367,7 @@ requires-dist = [
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.33.0" },
     { name = "websocket-client", specifier = ">=1.8.0" },
+    { name = "websockets", specifier = ">=14.1" },
     { name = "yarl", marker = "extra == 'bilibili'", specifier = ">=1.12.0,<2.0" },
 ]
 provides-extras = ["bilibili"]
