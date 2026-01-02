@@ -16,20 +16,19 @@ on:
       - '.idea'
       - '.gitignore'
       - '.github/**'
-      - '!.github/workflows/release.yml'
+      - '!.github/workflows/build.yml'
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
-defaults:
-  run:
-    shell: 'bash'
-
 env:
   NODE_NO_WARNINGS: 1
   npm_config_audit: false
   npm_config_fund: false
+  # Backend repository to clone
+  BACKEND_REPO: t41372/Open-LLM-VTuber
+  BACKEND_BRANCH: main
 
 jobs:
   draft:
@@ -55,24 +54,17 @@ jobs:
       - name: Generate release notes
         id: release-note
         run: |
-          RELEASE_NOTES=$(git log $(git describe --tags --abbrev=0)..HEAD --oneline)
+          RELEASE_NOTES=$(git log $(git describe --tags --abbrev=0 2>/dev/null || echo HEAD~10)..HEAD --oneline 2>/dev/null || echo "Initial release")
           RELEASE_NOTES="${RELEASE_NOTES//'%'/'%25'}"
           RELEASE_NOTES="${RELEASE_NOTES//$'\n'/'%0A'}"
           RELEASE_NOTES="${RELEASE_NOTES//$'\r'/'%0D'}"
           echo "release-note=$RELEASE_NOTES" >> $GITHUB_OUTPUT
 
-      - name: Get version from current date
+      - name: Get version from package.json
         id: version
         run: |
           VERSION=$(node -e "console.log(require('./package.json').version)")
           echo "build-version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Waiting on All checks
-        uses: lewagon/wait-on-check-action@v0.2
-        with:
-          ref: ${{ github.ref }}
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          running-workflow-name: 'draft'
 
       - name: Delete outdated drafts
         uses: hugo19941994/delete-draft-releases@v1.0.0
@@ -90,15 +82,228 @@ jobs:
           name: v${{ steps.version.outputs.build-version }}
           body: "Release v${{ steps.version.outputs.build-version }}"
 
-  upload_artifacts:
+  # ============================================================
+  # Windows Build - Includes Python Backend
+  # ============================================================
+  build_windows:
     needs: [draft]
     if: ${{ !contains(github.event.head_commit.message, '[skip]') }}
+    runs-on: windows-latest
     
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest]
+    steps:
+      - name: Checkout frontend repository
+        uses: actions/checkout@v3
 
-    runs-on: ${{ matrix.os }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Clone backend repository
+        run: |
+          git clone --depth 1 --branch ${{ env.BACKEND_BRANCH }} https://github.com/${{ env.BACKEND_REPO }}.git backend-repo
+        shell: bash
+
+      # ========================================
+      # Build Python Backend with Embedded Python
+      # ========================================
+      - name: Download Python Embeddable
+        shell: pwsh
+        run: |
+          $PythonVersion = "3.11.9"
+          $BuildDir = ".\backend-build"
+          New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
+          
+          $PythonUrl = "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-amd64.zip"
+          Write-Host "Downloading Python $PythonVersion embeddable..."
+          Invoke-WebRequest -Uri $PythonUrl -OutFile "$BuildDir\python-embed.zip" -UseBasicParsing
+          
+          Write-Host "Extracting Python..."
+          Expand-Archive -Path "$BuildDir\python-embed.zip" -DestinationPath "$BuildDir\python" -Force
+
+      - name: Configure Python Embeddable
+        shell: pwsh
+        run: |
+          $PythonDir = ".\backend-build\python"
+          $PyVerShort = "311"
+          
+          # Fix the ._pth file to enable pip and site-packages
+          $PthFile = Join-Path $PythonDir "python311._pth"
+          
+          # Content must include stdlib zip!
+          $NewPthContent = @"
+          python311.zip
+          .
+          Lib\site-packages
+          import site
+          "@
+          
+          # Write WITHOUT BOM (critical!)
+          $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::WriteAllText($PthFile, $NewPthContent.Trim(), $Utf8NoBom)
+          
+          # Create site-packages directory
+          New-Item -ItemType Directory -Force -Path "$PythonDir\Lib\site-packages" | Out-Null
+          
+          Write-Host "Configured python311._pth"
+
+      - name: Install pip
+        shell: pwsh
+        run: |
+          $PythonExe = ".\backend-build\python\python.exe"
+          
+          # Download get-pip.py
+          Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile ".\backend-build\get-pip.py" -UseBasicParsing
+          
+          # Test Python works
+          & $PythonExe -c "import sys; print(f'Python {sys.version}')"
+          
+          # Install pip
+          & $PythonExe ".\backend-build\get-pip.py" --no-warn-script-location
+
+      - name: Install Backend Dependencies
+        shell: pwsh
+        run: |
+          $PythonExe = ".\backend-build\python\python.exe"
+          $BackendRoot = ".\backend-repo"
+          
+          # Install PyTorch CPU (smaller, no CUDA)
+          Write-Host "Installing PyTorch (CPU)..."
+          & $PythonExe -m pip install --no-warn-script-location --index-url https://download.pytorch.org/whl/cpu torch
+          
+          # Filter out torch from requirements and install
+          $ReqPath = Join-Path $BackendRoot "requirements.txt"
+          if (Test-Path $ReqPath) {
+            $ReqFiltered = ".\backend-build\requirements-filtered.txt"
+            Get-Content $ReqPath | Where-Object { $_ -notmatch '^\s*torch==' } | Set-Content $ReqFiltered -Encoding ascii
+            
+            Write-Host "Installing backend dependencies..."
+            & $PythonExe -m pip install --no-warn-script-location -r $ReqFiltered
+          }
+          
+          # Install silero-vad
+          Write-Host "Installing silero-vad..."
+          & $PythonExe -m pip install --no-warn-script-location silero-vad
+
+      - name: Copy Backend Source to Embedded Python
+        shell: pwsh
+        run: |
+          $PythonDir = ".\backend-build\python"
+          $BackendRoot = ".\backend-repo"
+          
+          # Files to copy
+          $Files = @("run_server.py", "model_dict.json", "mcp_servers.json", "pyproject.toml")
+          $Dirs = @("src", "characters", "live2d-models", "prompts", "config_templates", "upgrade_codes", "web_tool")
+          
+          foreach ($file in $Files) {
+            $src = Join-Path $BackendRoot $file
+            if (Test-Path $src) {
+              Copy-Item -Path $src -Destination $PythonDir -Force
+              Write-Host "Copied: $file"
+            }
+          }
+          
+          foreach ($dir in $Dirs) {
+            $src = Join-Path $BackendRoot $dir
+            if (Test-Path $src) {
+              Copy-Item -Path $src -Destination $PythonDir -Recurse -Force
+              Write-Host "Copied: $dir\"
+            }
+          }
+          
+          # Create default conf.yaml from English template
+          $ConfTemplate = Join-Path $BackendRoot "config_templates\conf.default.yaml"
+          if (Test-Path $ConfTemplate) {
+            Copy-Item -Path $ConfTemplate -Destination (Join-Path $PythonDir "conf.yaml") -Force
+            Write-Host "Created conf.yaml from template"
+          }
+
+      - name: Package Backend to backend-dist
+        shell: pwsh
+        run: |
+          $PythonDir = ".\backend-build\python"
+          $TargetDir = ".\backend-dist"
+          
+          # Clean existing
+          if (Test-Path $TargetDir) {
+            Get-ChildItem -Path $TargetDir -Force | Where-Object { $_.Name -ne "README.txt" } | Remove-Item -Recurse -Force
+          }
+          
+          # Copy all
+          Copy-Item -Path "$PythonDir\*" -Destination $TargetDir -Recurse -Force
+          
+          # Write build ID for cache invalidation
+          $BuildId = "${{ github.sha }}"
+          $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::WriteAllText("$TargetDir\backend-build-id.txt", $BuildId, $Utf8NoBom)
+          
+          # Show size
+          $Size = (Get-ChildItem -Path $TargetDir -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+          Write-Host "Backend size: $([math]::Round($Size, 2)) MB"
+
+      - name: Verify Backend
+        shell: pwsh
+        run: |
+          $TargetDir = ".\backend-dist"
+          
+          # Check critical files exist
+          $CriticalFiles = @("python.exe", "python311.zip", "python311._pth", "run_server.py", "conf.yaml")
+          foreach ($f in $CriticalFiles) {
+            if (Test-Path (Join-Path $TargetDir $f)) {
+              Write-Host "✅ $f exists"
+            } else {
+              Write-Host "❌ MISSING: $f"
+              exit 1
+            }
+          }
+          
+          # Test Python works
+          & "$TargetDir\python.exe" -c "import sys; print(f'Embedded Python OK: {sys.version}')"
+
+      # ========================================
+      # Build Electron App
+      # ========================================
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Create build resources directory
+        run: mkdir -p resources
+        shell: bash
+
+      - name: Prepare release notes
+        env:
+          RELEASE_NOTE: ${{ needs.draft.outputs.release-note }}
+        run: echo "$RELEASE_NOTE" >> ./resources/release-notes.md
+        shell: bash
+
+      - name: Build Electron app
+        env:
+          VITE_APP_VERSION: ${{ needs.draft.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm run build
+          npx electron-builder --win --config electron-builder.yml --publish always
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: release/**/*.exe
+          retention-days: 30
+
+  # ============================================================
+  # macOS Build - Frontend Only (no backend bundling for now)
+  # ============================================================
+  build_macos:
+    needs: [draft]
+    if: ${{ !contains(github.event.head_commit.message, '[skip]') }}
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v3
@@ -111,8 +316,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # The easiest way to transfer release notes to a compiled application is create `release-notes.md` in the build resources.
-      # See https://github.com/electron-userland/electron-builder/issues/1511#issuecomment-310160119
       - name: Create build resources directory
         run: mkdir -p resources
 
@@ -121,35 +324,24 @@ jobs:
           RELEASE_NOTE: ${{ needs.draft.outputs.release-note }}
         run: echo "$RELEASE_NOTE" >> ./resources/release-notes.md
 
-      # If building a release for macos, need to do notarization.
-      # - name: Prepare for app notarization
-      #   if: startsWith(matrix.os, 'macos')
-      #   # Import Apple API key for app notarization on macOS
-      #   run: |
-      #     mkdir -p ~/private_keys/
-      #     echo '${{ secrets.apple_api_key }}' > ~/private_keys/AuthKey_${{ secrets.api_key_id }}.p8
-
-      # If releasing Linux app to Snapcraft, install and sign in.
-      # - name: Install Snapcraft
-      #   uses: samuelmeuli/action-snapcraft@v1
-      #   # Only install Snapcraft on Ubuntu
-      #   if: startsWith(matrix.os, 'ubuntu')
-      #   with:
-      #     # Log in to Snap Store
-      #     snapcraft_token: ${{ secrets.snapcraft_token }}
-
-      # Compile app and upload artifacts
-      - name: Compile & release Electron app
-        uses: samuelmeuli/action-electron-builder@v1
+      - name: Build Electron app
         env:
           VITE_APP_VERSION: ${{ needs.draft.outputs.version }}
-        with:
-          build_script_name: build
-          args: --config electron-builder.yml
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          release: true
-          max_attempts: 3
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm run build
+          npx electron-builder --mac --config electron-builder.yml --publish always
 
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-installer
+          path: release/**/*.dmg
+          retention-days: 30
+
+  # ============================================================
+  # Web Build
+  # ============================================================
   build_web:
     needs: [draft]
     runs-on: ubuntu-latest
