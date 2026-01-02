@@ -22,6 +22,8 @@ import { ProactiveSpeakProvider } from "./context/proactive-speak-context";
 import { ScreenCaptureProvider } from "./context/screen-capture-context";
 import { GroupProvider } from "./context/group-context";
 import { BrowserProvider } from "./context/browser-context";
+import { SetupProvider, useSetup } from "./context/setup-context";
+import OnboardingScreen from "./components/onboarding/onboarding-screen";
 // eslint-disable-next-line import/no-extraneous-dependencies, import/newline-after-import
 import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
 import Background from "./components/canvas/background";
@@ -216,11 +218,24 @@ function AppContent(): JSX.Element {
 function App(): JSX.Element {
   return (
     <ChakraProvider value={defaultSystem}>
-      <ModeProvider>
-        <AppWithGlobalStyles />
-      </ModeProvider>
+      <SetupProvider>
+        <ModeProvider>
+          <AppWithSetupGate />
+        </ModeProvider>
+      </SetupProvider>
     </ChakraProvider>
   );
+}
+
+function AppWithSetupGate(): JSX.Element {
+  const { isSetupComplete } = useSetup();
+  
+  // Show onboarding if setup is not complete
+  if (!isSetupComplete) {
+    return <OnboardingScreen />;
+  }
+  
+  return <AppWithGlobalStyles />;
 }
 
 function AppWithGlobalStyles(): JSX.Element {

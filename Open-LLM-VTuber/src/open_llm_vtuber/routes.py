@@ -1,15 +1,161 @@
 import os
+import sys
 import json
 from uuid import uuid4
+from pathlib import Path
 import numpy as np
 from datetime import datetime
-from fastapi import APIRouter, WebSocket, UploadFile, File, Response
+from fastapi import APIRouter, WebSocket, UploadFile, File, Response, HTTPException
+from pydantic import BaseModel
 from starlette.responses import JSONResponse
 from starlette.websockets import WebSocketDisconnect
 from loguru import logger
+from ruamel.yaml import YAML
 from .service_context import ServiceContext
 from .websocket_handler import WebSocketHandler
 from .proxy_handler import ProxyHandler
+
+
+def _get_base_dir() -> Path:
+    """Get the base directory for config files."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    # In dev mode, assume routes.py is at src/open_llm_vtuber/routes.py
+    return Path(__file__).resolve().parents[2]
+
+
+class ApiKeyRequest(BaseModel):
+    """Request model for API key configuration."""
+    api_key: str
+    provider: str = "openai_llm"
+
+
+def init_config_routes() -> APIRouter:
+    """
+    Create and return API routes for configuration management.
+    
+    Returns:
+        APIRouter: Configured router with config endpoints.
+    """
+    router = APIRouter(prefix="/api/config", tags=["config"])
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    
+    @router.post("/api-key")
+    async def save_api_key(request: ApiKeyRequest):
+        """
+        Save the API key to the configuration file.
+        
+        Args:
+            request: ApiKeyRequest containing the API key and provider.
+            
+        Returns:
+            JSONResponse with success status.
+        """
+        base_dir = _get_base_dir()
+        conf_path = base_dir / "conf.yaml"
+        
+        if not conf_path.exists():
+            # Try to create from template
+            template_path = base_dir / "config_templates" / "conf.default.yaml"
+            if template_path.exists():
+                import shutil
+                shutil.copy(template_path, conf_path)
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Configuration file not found and no template available"
+                )
+        
+        try:
+            # Load existing config
+            with open(conf_path, "r", encoding="utf-8") as f:
+                config = yaml.load(f)
+            
+            if config is None:
+                raise HTTPException(status_code=500, detail="Failed to parse configuration file")
+            
+            # Navigate to the LLM config section and update API key
+            provider = request.provider
+            
+            # Handle different possible config structures
+            agent_config = config.get("agent_config", {})
+            llm_configs = agent_config.get("llm_configs", {})
+            
+            if provider not in llm_configs:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Provider '{provider}' not found in configuration"
+                )
+            
+            # Update the API key
+            llm_configs[provider]["llm_api_key"] = request.api_key
+            
+            # Also set this provider as the active one
+            agent_settings = agent_config.get("agent_settings", {})
+            basic_memory_agent = agent_settings.get("basic_memory_agent", {})
+            basic_memory_agent["llm_provider"] = provider
+            
+            # Save the updated config
+            with open(conf_path, "w", encoding="utf-8") as f:
+                yaml.dump(config, f)
+            
+            logger.info(f"✅ API key saved successfully for provider: {provider}")
+            return JSONResponse({"success": True, "message": "API key saved successfully"})
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"❌ Failed to save API key: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to save API key: {str(e)}")
+    
+    @router.get("/status")
+    async def get_config_status():
+        """
+        Check if the configuration is properly set up.
+        
+        Returns:
+            JSONResponse with configuration status.
+        """
+        base_dir = _get_base_dir()
+        conf_path = base_dir / "conf.yaml"
+        
+        if not conf_path.exists():
+            return JSONResponse({
+                "configured": False,
+                "message": "Configuration file not found"
+            })
+        
+        try:
+            with open(conf_path, "r", encoding="utf-8") as f:
+                config = yaml.load(f)
+            
+            if config is None:
+                return JSONResponse({
+                    "configured": False,
+                    "message": "Configuration file is empty"
+                })
+            
+            # Check if OpenAI API key is set
+            agent_config = config.get("agent_config", {})
+            llm_configs = agent_config.get("llm_configs", {})
+            openai_config = llm_configs.get("openai_llm", {})
+            api_key = openai_config.get("llm_api_key", "")
+            
+            has_valid_key = bool(api_key) and not api_key.startswith("${") and api_key != "Your Open AI API key"
+            
+            return JSONResponse({
+                "configured": has_valid_key,
+                "provider": "openai_llm" if has_valid_key else None,
+                "message": "Configuration is valid" if has_valid_key else "API key not configured"
+            })
+            
+        except Exception as e:
+            logger.error(f"Error checking config status: {e}")
+            return JSONResponse({
+                "configured": False,
+                "message": f"Error reading configuration: {str(e)}"
+            })
 
 
 def init_client_ws_route(default_context_cache: ServiceContext) -> APIRouter:

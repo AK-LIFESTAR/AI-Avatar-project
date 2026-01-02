@@ -6,6 +6,20 @@
     "close": "Close",
     "accept": "Accept"
   },
+  "onboarding": {
+    "welcome": "Welcome to Project A",
+    "subtitle": "Your AI-powered avatar companion",
+    "connectAI": "Connect Your AI",
+    "enterApiKey": "Enter your OpenAI API key to bring your avatar to life",
+    "apiKeyPlaceholder": "sk-proj-...",
+    "continue": "Continue",
+    "noApiKey": "Don't have an API key?",
+    "getFromOpenAI": "Get one from OpenAI",
+    "keySecure": "Your API key is stored securely on your device and never shared.",
+    "allSet": "You're All Set!",
+    "readyToChat": "Your AI avatar is ready to chat",
+    "loading": "Loading your experience..."
+  },
   "settings": {
     "tabs": {
       "general": "General",
@@ -56,7 +70,7 @@
       "allowButtonTrigger": "Prompt AI to Speak via Raise Hand Button"
     },
     "about": {
-      "title": "Open LLM VTuber Frontend",
+      "title": "AI Avatar Application",
       "version": "Version",
       "projectLinks": "Project Links",
       "github": "GitHub",
