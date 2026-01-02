@@ -1,0 +1,154 @@
+{
+  "common": {
+    "save": "Salva",
+    "cancel": "Annulla",
+    "settings": "Impostazioni",
+    "close": "Chiudi",
+    "accept": "Accetta"
+  },
+  "onboarding": {
+    "welcome": "Benvenuto in Project A",
+    "subtitle": "Il tuo compagno avatar alimentato dall'IA",
+    "connectAI": "Connetti la tua IA",
+    "enterApiKey": "Inserisci la tua chiave API OpenAI per dare vita al tuo avatar",
+    "apiKeyPlaceholder": "sk-proj-...",
+    "continue": "Continua",
+    "noApiKey": "Non hai una chiave API?",
+    "getFromOpenAI": "Ottienila da OpenAI",
+    "keySecure": "La tua chiave API è memorizzata in modo sicuro sul tuo dispositivo e mai condivisa.",
+    "allSet": "Tutto Pronto!",
+    "readyToChat": "Il tuo avatar IA è pronto per chattare",
+    "loading": "Caricamento della tua esperienza..."
+  },
+  "settings": {
+    "tabs": {
+      "general": "Generale",
+      "live2d": "Live2D",
+      "asr": "ASR",
+      "tts": "TTS",
+      "agent": "Agente",
+      "about": "Info"
+    },
+    "general": {
+      "language": "Lingua",
+      "useCameraBackground": "Usa Sfondo Fotocamera",
+      "showSubtitle": "Mostra Sottotitoli",
+      "backgroundImage": "Immagine di Sfondo",
+      "customBgUrlPlaceholder": "Inserisci URL immagine",
+      "customBgUrl": "Oppure inserisci un URL sfondo personalizzato",
+      "characterPreset": "Preset Personaggio",
+      "wsUrl": "URL WebSocket",
+      "baseUrl": "URL Base",
+      "imageCompressionQuality": "Qualità Compressione Immagine",
+      "imageCompressionQualityPlaceholder": "Inserisci qualità compressione (0-100)",
+      "imageCompressionQualityHelp": "Qualità compressione JPEG (0.1-1.0). Il valore predefinito è 0.8 per ridurre la dimensione del file durante la trasmissione delle immagini ai modelli IA.",
+      "imageMaxWidth": "Larghezza Massima Immagine",
+      "imageMaxWidthPlaceholder": "Inserisci larghezza massima in pixel",
+      "imageMaxWidthHelp": "Larghezza massima per il ridimensionamento delle immagini. Le immagini che superano questa larghezza verranno ridimensionate proporzionalmente. Imposta 0 per nessun limite."
+    },
+    "live2d": {
+      "pointerInteractive": "Interazione Puntatore",
+      "scrollToResize": "Abilita Scroll per Ridimensionare"
+    },
+    "asr": {
+      "autoStopMic": "Stop Auto Microfono Quando l'IA Parla",
+      "autoStopMicDesc": "Ferma automaticamente il microfono quando l'IA inizia a parlare per evitare feedback audio",
+      "autoStartMicOnConvEnd": "Avvia Auto Microfono a Fine Conversazione",
+      "autoStartMicOnConvEndDesc": "Riavvia automaticamente il microfono quando l'IA finisce di parlare",
+      "autoStartMicOn": "Avvia Auto Microfono Quando l'IA è Interrotta",
+      "autoStartMicOnDesc": "Riavvia automaticamente il microfono quando interrompi l'IA",
+      "positiveSpeechThreshold": "Soglia Rilevamento Voce",
+      "positiveSpeechThresholdDesc": "Livello minimo di confidenza (1-100) richiesto per rilevare la voce",
+      "negativeSpeechThreshold": "Soglia Negativa Voce",
+      "negativeSpeechThresholdDesc": "Livello di confidenza (0-100) sotto il quale il rilevamento voce si ferma",
+      "redemptionFrames": "Frame di Riscatto",
+      "redemptionFramesDesc": "Numero di frame consecutivi (1-100) necessari per confermare il rilevamento vocale"
+    },
+    "agent": {
+      "allowProactiveSpeak": "Permetti all'IA di Parlare Proattivamente",
+      "idleSecondsToSpeak": "Secondi di inattività prima che l'IA parli",
+      "allowButtonTrigger": "Attiva l'IA con il Pulsante Alza la Mano"
+    },
+    "about": {
+      "title": "Applicazione Avatar IA",
+      "version": "Versione",
+      "projectLinks": "Link del Progetto",
+      "github": "GitHub",
+      "documentation": "Documentazione",
+      "license": "Licenza",
+      "copyright": "Copyright",
+      "viewLicense": "Visualizza Licenza"
+    }
+  },
+  "footer": {
+    "typeYourMessage": "Scrivi il tuo messaggio...",
+    "cameraControl": "Clicca per avviare la fotocamera",
+    "cameraStopping": "Clicca per fermare la fotocamera",
+    "screenControl": "Clicca per avviare la cattura schermo",
+    "screenStopping": "Clicca per fermare la cattura schermo"
+  },
+  "sidebar": {
+    "camera": "Fotocamera",
+    "screen": "Schermo",
+    "browser": "Browser",
+    "live": "Live",
+    "noMessages": "Nessun messaggio ancora. Inizia una conversazione!",
+    "noBrowserSession": "Nessuna sessione browser attiva",
+    "browserSession": "Sessione Browser"
+  },
+  "group": {
+    "management": "Gestione Gruppo",
+    "yourUuid": "Il tuo UUID",
+    "inviteMember": "Invita Membro",
+    "enterMemberUuid": "Inserisci UUID membro",
+    "invite": "Invita",
+    "members": "Membri",
+    "you": "Tu",
+    "leaveGroup": "Lascia Gruppo",
+    "removeMember": "Rimuovi Membro",
+    "leave": "Esci"
+  },
+  "history": {
+    "chatHistoryList": "Lista Cronologia Chat",
+    "noMessages": "Nessun messaggio"
+  },
+  "notification": {
+    "characterLoaded": "Nuovo Personaggio Caricato",
+    "characterSwitched": "Personaggio cambiato",
+    "historyLoaded": "Cronologia caricata",
+    "newConversation": "Nuova Conversazione Iniziata",
+    "newChatHistory": "Nuova cronologia chat creata",
+    "historyDeleteSuccess": "Cronologia eliminata con successo",
+    "historyDeleteFail": "Impossibile eliminare la cronologia"
+  },
+  "error": {
+    "cameraApiNotSupported": "L'API fotocamera non è supportata su questo dispositivo",
+    "noCameraFound": "Nessuna fotocamera trovata su questo dispositivo",
+    "failedStartCamera": "Impossibile avviare la fotocamera",
+    "failedStartBackgroundCamera": "Impossibile avviare la fotocamera di sfondo",
+    "failedStartScreenCapture": "Impossibile avviare la cattura schermo",
+    "failedStartVAD": "Impossibile avviare VAD",
+    "llmCantHear": "L'IA non può sentirti.",
+    "audioPlayback": "Errore riproduzione audio",
+    "enterValidUuid": "Inserisci un UUID valido",
+    "cannotDeleteCurrentHistory": "Impossibile eliminare la cronologia chat corrente",
+    "failedCapture": "Impossibile catturare frame {{source}}",
+    "failedParseWebSocket": "Impossibile analizzare il messaggio WebSocket",
+    "websocketNotOpen": "WebSocket non è aperto.",
+    "vadMisfire": "Voce rilevata ma troppo breve. Prova a parlare più forte/più a lungo, o regola le impostazioni."
+  },
+  "aiState": {
+    "idle": "inattivo",
+    "thinking-speaking": "pensando/parlando",
+    "interrupted": "interrotto",
+    "loading": "caricamento",
+    "listening": "ascoltando",
+    "waiting": "in attesa"
+  },
+  "wsStatus": {
+    "connected": "Connesso",
+    "connecting": "Connessione in corso",
+    "clickToReconnect": "Clicca per Riconnettere"
+  }
+}
+

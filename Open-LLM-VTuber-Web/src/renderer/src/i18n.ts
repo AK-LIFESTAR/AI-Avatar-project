@@ -3,8 +3,9 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 
-// Import translation resources (English only for now)
+// Import translation resources
 import enTranslation from "./locales/en/translation.json";
+import itTranslation from "./locales/it/translation.json";
 
 // Configure i18next instance
 i18n
@@ -22,10 +23,13 @@ i18n
     // Namespaces configuration
     defaultNS: "translation",
     ns: ["translation"],
-    // Resources containing translations (English only for now)
+    // Resources containing translations
     resources: {
       en: {
         translation: enTranslation,
+      },
+      it: {
+        translation: itTranslation,
       },
     },
     // Language detection options - disabled for now, force English
