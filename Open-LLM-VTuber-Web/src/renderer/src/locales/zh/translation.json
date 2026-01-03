@@ -13,6 +13,7 @@
       "asr": "识别",
       "tts": "合成",
       "agent": "代理",
+      "computerUse": "电脑控制",
       "about": "关于"
     },
     "general": {
@@ -61,6 +62,28 @@
       "documentation": "文档",
       "copyright": "版权",
       "viewLicense": "查看许可证"
+    },
+    "computerUse": {
+      "warning": "安全警告",
+      "warningText": "此功能允许AI控制您的鼠标和键盘。只有在您信任AI模型并了解风险的情况下才启用。",
+      "enable": "启用电脑控制",
+      "enableDesc": "允许AI控制您的电脑",
+      "llmProvider": "视觉LLM提供商",
+      "llmProviderDesc": "必须是支持视觉的模型",
+      "safety": "安全设置",
+      "killSwitch": "紧急停止角落",
+      "killSwitchDesc": "将鼠标移动到此角落可停止所有操作",
+      "maxActions": "每会话最大操作数",
+      "rateLimit": "每秒操作数",
+      "timeout": "会话超时（秒）",
+      "requireConfirm": "需要确认",
+      "requireConfirmDesc": "每次操作前询问",
+      "performance": "性能设置",
+      "screenshotScale": "截图缩放比例",
+      "logScreenshots": "记录截图",
+      "logScreenshotsDesc": "保存截图以供审查（占用磁盘空间）",
+      "dryRun": "模拟运行模式",
+      "dryRunDesc": "记录操作但不执行（用于测试）"
     }
   },
   "footer": {
@@ -74,6 +97,7 @@
     "camera": "摄像头",
     "screen": "屏幕",
     "browser": "浏览器",
+    "computerUse": "电脑控制",
     "live": "直播",
     "noMessages": "暂无消息。开始对话吧！",
     "noBrowserSession": "无活跃浏览器会话",

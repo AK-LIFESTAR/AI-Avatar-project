@@ -68,3 +68,18 @@ websockets==14.1
     # via open-llm-vtuber (pyproject.toml)
 websocket-client==1.8.0
     # via open-llm-vtuber (pyproject.toml)
+# Computer Use dependencies
+pyautogui==0.9.54
+    # via open-llm-vtuber (pyproject.toml)
+mss==9.0.2
+    # via open-llm-vtuber (pyproject.toml)
+pillow==10.4.0
+    # via open-llm-vtuber (pyproject.toml)
+silero-vad==6.2.0
+    # via open-llm-vtuber (pyproject.toml)
+gradio-client==2.0.2
+    # via open-llm-vtuber (pyproject.toml)
+cartesia==2.0.0
+    # via open-llm-vtuber (pyproject.toml)
+elevenlabs==1.0.0
+    # via open-llm-vtuber (pyproject.toml)

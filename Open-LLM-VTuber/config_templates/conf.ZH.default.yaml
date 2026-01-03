@@ -494,3 +494,63 @@ live_config:
     room_ids: [1991478060]
     # SESSDATA cookie值（可选，用于认证请求，可以查看发送弹幕用户名）
     sessdata: ""
+
+# =================== 🖥️ 电脑控制 (PC Control) ===================
+#
+# 此功能允许AI像人一样自主控制您的电脑！
+# AI可以看到您的屏幕并控制鼠标/键盘来完成任务。
+#
+# ⚠️ 安全警告：
+# - 只有在您信任所使用的AI模型时才启用
+# - 随时将鼠标移动到左上角可紧急停止
+# - AI不会输入密码或访问敏感信息
+#
+# 🚀 快速开始：
+# 1. 将下面的 'enabled' 设置为 true
+# 2. 确保您已在上面的 'openai_llm' 中配置了 OpenAI API 密钥
+# 3. 使用 GPT-4o 或 GPT-4-Vision 模型（屏幕分析必需）
+# 4. 打开应用并点击 "PC" 标签即可开始！
+#
+# 支持 macOS 和 Windows！
+#
+computer_use_config:
+  # 启用/禁用电脑控制功能
+  # 设置为 'true' 以启用 PC 控制标签
+  enabled: false
+  
+  # 用于视觉分析的LLM提供商
+  # 必须支持视觉 - 推荐：使用 gpt-4o 模型的 'openai_llm'
+  # 确保您已在上面的 openai_llm 部分设置了 OpenAI API 密钥！
+  vision_llm_provider: 'openai_llm'
+  
+  # AI在单个会话中可以执行的最大操作数
+  # 防止失控自动化 - 根据任务复杂度调整
+  max_actions_per_session: 50
+  
+  # 速率限制：每秒最大操作数
+  # 越低越安全但越慢
+  action_rate_limit: 2.0
+  
+  # 截图缩放因子（0.1-1.0）
+  # 越低处理越快但细节越少
+  # 推荐：0.5 以获得良好平衡
+  screenshot_scale: 0.5
+  
+  # 紧急停止角落 - 将鼠标移动到此处可立即停止
+  # 选项：'top_left'（左上）、'top_right'（右上）、'bottom_left'（左下）、'bottom_right'（右下）
+  kill_switch_corner: 'top_left'
+  
+  # 每次操作前要求用户确认（更安全但更慢）
+  require_confirmation: false
+  
+  # 会话超时（秒）（无活动后自动停止）
+  session_timeout: 300
+  
+  # 随操作日志保存截图（用于调试）
+  log_screenshots: false
+  
+  # 模拟运行模式：记录操作但不实际执行（用于测试）
+  dry_run: false
+  
+  # 显示器索引（1=主显示器）
+  monitor_index: 1

@@ -95,6 +95,49 @@ for pkg in ['uvicorn', 'starlette', 'fastapi', 'pydantic', 'pydantic_core', 'ant
     except Exception as e:
         print(f"Skipping submodules for {pkg}: {e}")
 
+# =============================================================================
+# Computer Use dependencies
+# =============================================================================
+computer_use_packages = ['pyautogui', 'mss', 'pynput', 'PIL', 'pygetwindow']
+for pkg in computer_use_packages:
+    try:
+        pkg_datas, pkg_binaries, pkg_hiddenimports = collect_all(pkg)
+        extra_datas.extend(pkg_datas)
+        extra_binaries.extend(pkg_binaries)
+        extra_hiddenimports.extend(pkg_hiddenimports)
+        print(f"Collected {pkg}: {len(pkg_datas)} datas, {len(pkg_binaries)} binaries, {len(pkg_hiddenimports)} hiddenimports")
+    except Exception as e:
+        print(f"Skipping {pkg}: {e}")
+
+# Add computer_use module hidden imports
+extra_hiddenimports.extend([
+    'pyautogui',
+    'mss',
+    'mss.windows',
+    'mss.darwin',
+    'mss.linux',
+    'pynput',
+    'pynput.keyboard',
+    'pynput.mouse',
+    'pynput.keyboard._win32',
+    'pynput.mouse._win32',
+    'PIL',
+    'PIL.Image',
+    # Window Manager for desktop layout detection
+    'pygetwindow',
+    'pygetwindow._pygetwindow_win',
+    # Computer Use session modules
+    'open_llm_vtuber.computer_use',
+    'open_llm_vtuber.computer_use.session',
+    'open_llm_vtuber.computer_use.window_manager',
+    'open_llm_vtuber.computer_use.action_handler',
+    'open_llm_vtuber.computer_use.vision_engine',
+    'open_llm_vtuber.computer_use.safety',
+    'open_llm_vtuber.computer_use.logger',
+    'open_llm_vtuber.computer_use.prompts',
+    'open_llm_vtuber.computer_use.types',
+])
+
 datas = [
     (rel("conf.yaml"), "."),
     (rel("model_dict.json"), "."),

@@ -132,5 +132,50 @@ class AgentFactory:
                 port=settings.get("port"),
             )
 
+        elif conversation_agent_choice == "computer_use_agent":
+            # Lazy import so optional dependencies don't break server startup.
+            from .agents.computer_use_agent import ComputerUseAgent
+
+            # Get the LLM provider choice from agent settings
+            computer_use_settings: dict = agent_settings.get("computer_use_agent", {})
+            llm_provider: str = computer_use_settings.get(
+                "llm_provider", "openai_llm"
+            )
+
+            # Get the LLM config for this provider
+            llm_config: dict = llm_configs.get(llm_provider, {}).copy()
+
+            if not llm_config:
+                raise ValueError(
+                    f"Configuration not found for LLM provider: {llm_provider}"
+                )
+
+            # Create the stateless LLM (must support vision)
+            llm = StatelessLLMFactory.create_llm(
+                llm_provider=llm_provider, system_prompt=system_prompt, **llm_config
+            )
+
+            # Get computer use specific config from kwargs
+            computer_use_config = kwargs.get("computer_use_config", {})
+
+            return ComputerUseAgent(
+                llm=llm,
+                system=system_prompt,
+                live2d_model=live2d_model,
+                tts_preprocessor_config=tts_preprocessor_config,
+                enabled=computer_use_config.get("enabled", False),
+                max_actions_per_session=computer_use_config.get(
+                    "max_actions_per_session", 50
+                ),
+                action_rate_limit=computer_use_config.get("action_rate_limit", 5.0),
+                screenshot_scale=computer_use_config.get("screenshot_scale", 0.5),
+                kill_switch_corner=computer_use_config.get(
+                    "kill_switch_corner", "top_left"
+                ),
+                session_timeout=computer_use_config.get("session_timeout", 300.0),
+                log_screenshots=computer_use_config.get("log_screenshots", False),
+                dry_run=computer_use_config.get("dry_run", False),
+            )
+
         else:
             raise ValueError(f"Unsupported agent type: {conversation_agent_choice}")

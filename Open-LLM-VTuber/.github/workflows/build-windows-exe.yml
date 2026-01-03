@@ -1,0 +1,149 @@
+name: Build Windows Executable
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_models:
+        description: "Include offline ASR models (increases size significantly)"
+        type: boolean
+        default: false
+      upload_artifact:
+        description: "Upload build as GitHub Actions artifact"
+        type: boolean
+        default: true
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          # Upgrade pip and install build tools
+          python -m pip install --upgrade pip wheel setuptools pyinstaller
+          
+          # Install dependencies from requirements.txt (excluding torch)
+          $ReqPath = "requirements.txt"
+          $ReqWin = "requirements.win-ci.txt"
+          Get-Content $ReqPath |
+            Where-Object { $_ -notmatch '^\s*torch==' } |
+            Set-Content -Path $ReqWin -Encoding utf8
+          
+          python -m pip install -r $ReqWin
+          
+          # Install torch CPU wheels for smaller build
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          
+          # Install computer use dependencies (including pygetwindow for Windows window detection)
+          python -m pip install pyautogui mss pillow pynput pygetwindow
+          
+          # Install silero-vad
+          python -m pip install silero-vad
+          
+          # Reinstall tomli from source to avoid mypyc issues
+          python -m pip uninstall -y tomli
+          python -m pip install tomli --no-binary tomli
+
+      - name: Download ASR model (optional)
+        if: ${{ github.event.inputs.include_models == 'true' }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "models"
+          Set-Location models
+          
+          Write-Host "Downloading ASR model..."
+          Invoke-WebRequest -Uri "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2" -OutFile "model.tar.bz2"
+          
+          Write-Host "Extracting model..."
+          tar -xjf model.tar.bz2
+          Remove-Item model.tar.bz2
+          
+          # Remove large model file to reduce size
+          Remove-Item -Path "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/model.onnx" -Force -ErrorAction SilentlyContinue
+
+      - name: Build with PyInstaller
+        shell: pwsh
+        env:
+          OPEN_LLM_VTUBER_BACKEND_ROOT: ${{ github.workspace }}
+          OPEN_LLM_VTUBER_INCLUDE_OFFLINE_MODELS: ${{ github.event.inputs.include_models == 'true' && '1' || '0' }}
+        run: |
+          Write-Host "Building with PyInstaller..."
+          python -m PyInstaller .\pyinstaller\open_llm_vtuber_backend.spec --noconfirm --clean
+
+      - name: Verify build
+        shell: pwsh
+        run: |
+          $BuiltDir = "dist\open-llm-vtuber-backend"
+          if (!(Test-Path $BuiltDir)) {
+            throw "Build output not found: $BuiltDir"
+          }
+          
+          Write-Host "Build successful! Contents:"
+          Get-ChildItem -Path $BuiltDir -Recurse | Measure-Object | Select-Object -ExpandProperty Count
+          Write-Host "Total files in build directory"
+
+      - name: Get version
+        id: get_version
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path "pyproject.toml" -Pattern 'version = "([^"]+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $version"
+
+      - name: Create ZIP archive
+        shell: pwsh
+        run: |
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          $zipName = "Open-LLM-VTuber-Backend-v$version-windows.zip"
+          
+          Compress-Archive -Path "dist\open-llm-vtuber-backend\*" -DestinationPath $zipName -Force
+          
+          Write-Host "Created: $zipName"
+          Get-Item $zipName | Select-Object Name, Length
+
+      - name: Upload artifact
+        if: ${{ github.event.inputs.upload_artifact == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Open-LLM-VTuber-Backend-v${{ steps.get_version.outputs.VERSION }}-windows
+          path: Open-LLM-VTuber-Backend-v${{ steps.get_version.outputs.VERSION }}-windows.zip
+          retention-days: 30
+
+      - name: Build summary
+        shell: pwsh
+        run: |
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          $zipName = "Open-LLM-VTuber-Backend-v$version-windows.zip"
+          $size = (Get-Item $zipName).Length / 1MB
+          
+          Write-Host "============================================"
+          Write-Host "Build Complete!"
+          Write-Host "============================================"
+          Write-Host "Version: v$version"
+          Write-Host "Archive: $zipName"
+          Write-Host "Size: $([math]::Round($size, 2)) MB"
+          Write-Host "============================================"
+          Write-Host ""
+          Write-Host "The Windows executable includes:"
+          Write-Host "  - Full Open-LLM-VTuber backend"
+          Write-Host "  - Computer Use agent (PyAutoGUI, MSS)"
+          Write-Host "  - All TTS/ASR engines"
+          if ("${{ github.event.inputs.include_models }}" -eq "true") {
+            Write-Host "  - Offline ASR models (sherpa-onnx sense-voice)"
+          }
+          Write-Host ""
+          Write-Host "To use: Extract the ZIP and run open-llm-vtuber-backend.exe"
+

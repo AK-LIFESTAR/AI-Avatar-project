@@ -286,6 +286,25 @@ function WebSocketHandler({ children }: { children: React.ReactNode }) {
           console.warn('Received incomplete tool_call_status message:', message);
         }
         break;
+      case 'computer_use_status':
+        // Forward computer use status to ComputerUseContext via custom event
+        console.log('Received computer_use_status:', message);
+        window.dispatchEvent(new CustomEvent('computer_use_status', { detail: message }));
+        break;
+      case 'computer_use_error':
+        console.error('Computer use error:', message.error);
+        toaster.create({
+          title: 'Computer Use Error',
+          description: message.error || 'An error occurred',
+          type: 'error',
+          duration: 5000,
+        });
+        window.dispatchEvent(new CustomEvent('computer_use_status', { detail: { ...message, status: 'error' } }));
+        break;
+      case 'computer_use_start':
+        console.log('Computer use started:', message);
+        window.dispatchEvent(new CustomEvent('computer_use_status', { detail: { ...message, status: 'started' } }));
+        break;
       default:
         console.warn('Unknown message type:', message.type);
     }

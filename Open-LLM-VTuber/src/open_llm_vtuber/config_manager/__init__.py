@@ -54,6 +54,7 @@ from .agent import (
     Mem0LLMConfig,
     Mem0EmbedderConfig,
 )
+from .computer_use import ComputerUseConfig
 
 # Import utility functions
 from .utils import (
@@ -116,6 +117,8 @@ __all__ = [
     "I18nMixin",
     "Description",
     "MultiLingualString",
+    # Computer Use related classes
+    "ComputerUseConfig",
     # Utility functions
     "read_yaml",
     "validate_config",

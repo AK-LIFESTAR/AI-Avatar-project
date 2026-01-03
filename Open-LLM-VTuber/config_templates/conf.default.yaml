@@ -498,3 +498,63 @@ live_config:
     room_ids: [1991478060]
     # SESSDATA cookie value (optional, for authenticated requests)
     sessdata: ""
+
+# =================== 🖥️ PC Control (Computer Use Agent) ===================
+#
+# This feature allows AI to autonomously control your computer like a human!
+# The AI can see your screen and control mouse/keyboard to complete tasks.
+#
+# ⚠️ SAFETY WARNING:
+# - Only enable if you trust the AI model being used
+# - Move mouse to top-left corner to EMERGENCY STOP at any time
+# - The AI will not type passwords or access sensitive information
+#
+# 🚀 QUICK START:
+# 1. Set 'enabled: true' below
+# 2. Make sure you have an OpenAI API key configured in 'openai_llm' above
+# 3. Use GPT-4o or GPT-4-Vision model (required for screen analysis)
+# 4. Open the app and click "PC" tab to start!
+#
+# Works on both macOS and Windows!
+#
+computer_use_config:
+  # Enable/disable computer use feature
+  # Set to 'true' to enable the PC Control tab
+  enabled: false
+  
+  # LLM provider for vision analysis
+  # Must support vision - recommended: 'openai_llm' with gpt-4o model
+  # Make sure you have set your OpenAI API key in the openai_llm section above!
+  vision_llm_provider: 'openai_llm'
+  
+  # Maximum actions AI can take in a single session
+  # Prevents runaway automation - adjust based on task complexity
+  max_actions_per_session: 50
+  
+  # Rate limit: maximum actions per second
+  # Lower = safer but slower
+  action_rate_limit: 2.0
+  
+  # Scale factor for screenshots (0.1-1.0)
+  # Lower = faster processing but less detail
+  # Recommended: 0.5 for good balance
+  screenshot_scale: 0.5
+  
+  # Kill switch corner - move mouse here to STOP immediately
+  # Options: 'top_left', 'top_right', 'bottom_left', 'bottom_right'
+  kill_switch_corner: 'top_left'
+  
+  # Require user confirmation before each action (safer but slower)
+  require_confirmation: false
+  
+  # Session timeout in seconds (auto-stop after inactivity)
+  session_timeout: 300
+  
+  # Save screenshots with action logs (useful for debugging)
+  log_screenshots: false
+  
+  # Dry run mode: log actions without executing (for testing)
+  dry_run: false
+  
+  # Monitor index (1=primary monitor)
+  monitor_index: 1

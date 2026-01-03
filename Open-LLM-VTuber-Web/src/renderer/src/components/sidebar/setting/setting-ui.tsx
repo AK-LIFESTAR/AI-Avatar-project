@@ -22,6 +22,7 @@ import ASR from './asr';
 import TTS from './tts';
 import Agent from './agent';
 import About from './about';
+import ComputerUseSettings from './computer-use';
 
 interface SettingUIProps {
   open: boolean;
@@ -82,6 +83,12 @@ function SettingUI({ open, onClose }: SettingUIProps): JSX.Element {
         </Tabs.Content>
         <Tabs.Content value="agent" {...settingStyles.settingUI.tabs.content}>
           <Agent
+            onSave={handleSaveCallback}
+            onCancel={handleCancelCallback}
+          />
+        </Tabs.Content>
+        <Tabs.Content value="computer-use" {...settingStyles.settingUI.tabs.content}>
+          <ComputerUseSettings
             onSave={handleSaveCallback}
             onCancel={handleCancelCallback}
           />
@@ -150,6 +157,12 @@ function SettingUI({ open, onClose }: SettingUIProps): JSX.Element {
                 {...settingStyles.settingUI.tabs.trigger}
               >
                 {t('settings.tabs.agent')}
+              </Tabs.Trigger>
+              <Tabs.Trigger
+                value="computer-use"
+                {...settingStyles.settingUI.tabs.trigger}
+              >
+                {t('settings.tabs.computerUse', 'PC Control')}
               </Tabs.Trigger>
               <Tabs.Trigger
                 value="about"

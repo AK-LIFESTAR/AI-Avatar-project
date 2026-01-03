@@ -27,6 +27,7 @@
       "asr": "ASR",
       "tts": "TTS",
       "agent": "Agent",
+      "computerUse": "PC Control",
       "about": "About"
     },
     "general": {
@@ -78,6 +79,28 @@
       "license": "License",
       "copyright": "Copyright",
       "viewLicense": "View License"
+    },
+    "computerUse": {
+      "warning": "Security Warning",
+      "warningText": "This feature allows AI to control your mouse and keyboard. Only enable if you trust the AI model and understand the risks.",
+      "enable": "Enable Computer Use",
+      "enableDesc": "Allow AI to control your computer",
+      "llmProvider": "Vision LLM Provider",
+      "llmProviderDesc": "Must be a vision-capable model",
+      "safety": "Safety Settings",
+      "killSwitch": "Kill Switch Corner",
+      "killSwitchDesc": "Move mouse to this corner to stop all actions",
+      "maxActions": "Max Actions Per Session",
+      "rateLimit": "Actions Per Second",
+      "timeout": "Session Timeout (seconds)",
+      "requireConfirm": "Require Confirmation",
+      "requireConfirmDesc": "Ask before each action",
+      "performance": "Performance",
+      "screenshotScale": "Screenshot Scale",
+      "logScreenshots": "Log Screenshots",
+      "logScreenshotsDesc": "Save screenshots for review (uses disk space)",
+      "dryRun": "Dry Run Mode",
+      "dryRunDesc": "Log actions without executing (for testing)"
     }
   },
   "footer": {
@@ -91,6 +114,7 @@
     "camera": "Camera",
     "screen": "Screen",
     "browser": "Browser",
+    "computerUse": "PC Control",
     "live": "Live",
     "noMessages": "No messages yet. Start a conversation!",
     "noBrowserSession": "No active browser session",

@@ -43,6 +43,7 @@ class MessageType(Enum):
     CONFIG = ["fetch-configs", "switch-config"]
     CONTROL = ["interrupt-signal", "audio-play-start"]
     DATA = ["mic-audio-data"]
+    COMPUTER_USE = ["computer-use-start", "computer-use-stop"]
 
 
 class WSMessage(TypedDict, total=False):
@@ -95,6 +96,8 @@ class WebSocketHandler:
             "audio-play-start": self._handle_audio_play_start,
             "request-init-config": self._handle_init_config_request,
             "heartbeat": self._handle_heartbeat,
+            "computer-use-start": self._handle_computer_use_start,
+            "computer-use-stop": self._handle_computer_use_stop,
         }
 
     async def handle_new_connection(
@@ -610,3 +613,108 @@ class WebSocketHandler:
             await websocket.send_json({"type": "heartbeat-ack"})
         except Exception as e:
             logger.error(f"Error sending heartbeat acknowledgment: {e}")
+
+    async def _handle_computer_use_start(
+        self, websocket: WebSocket, client_uid: str, data: dict
+    ) -> None:
+        """Handle computer use session start request"""
+        logger.info(f"🖥️ Computer Use start request received from {client_uid}")
+        logger.info(f"Data received: {data}")
+        
+        goal = data.get("goal", "")
+        if not goal:
+            await websocket.send_text(
+                json.dumps({
+                    "type": "computer_use_error",
+                    "error": "No goal provided for computer use session"
+                })
+            )
+            return
+
+        context = self.client_contexts.get(client_uid)
+        if not context:
+            await websocket.send_text(
+                json.dumps({
+                    "type": "computer_use_error",
+                    "error": "No service context found"
+                })
+            )
+            return
+
+        # Check if computer use is enabled in config
+        if not context.config.computer_use_config.enabled:
+            await websocket.send_text(
+                json.dumps({
+                    "type": "computer_use_error",
+                    "error": "Computer Use is not enabled. Enable it in settings first."
+                })
+            )
+            return
+
+        try:
+            # Import here to avoid circular imports
+            from .computer_use import ComputerUseSession
+
+            # Create and store the computer use session
+            session = ComputerUseSession(
+                config=context.config.computer_use_config,
+                llm=context.agent_engine._llm if hasattr(context.agent_engine, '_llm') else None,
+                websocket_send=websocket.send_text,
+            )
+
+            # Store session for this client
+            if not hasattr(self, 'computer_use_sessions'):
+                self.computer_use_sessions = {}
+            self.computer_use_sessions[client_uid] = session
+
+            # Start the session
+            await websocket.send_text(
+                json.dumps({
+                    "type": "computer_use_start",
+                    "goal": goal,
+                    "message": "Computer use session started"
+                })
+            )
+
+            # Run the session (this will send updates via websocket)
+            asyncio.create_task(session.run(goal))
+
+        except ImportError as e:
+            logger.warning(f"Computer use module not available: {e}")
+            await websocket.send_text(
+                json.dumps({
+                    "type": "computer_use_error",
+                    "error": "Computer use module not available"
+                })
+            )
+        except Exception as e:
+            logger.error(f"Error starting computer use session: {e}")
+            await websocket.send_text(
+                json.dumps({
+                    "type": "computer_use_error",
+                    "error": str(e)
+                })
+            )
+
+    async def _handle_computer_use_stop(
+        self, websocket: WebSocket, client_uid: str, data: dict
+    ) -> None:
+        """Handle computer use session stop request"""
+        if hasattr(self, 'computer_use_sessions') and client_uid in self.computer_use_sessions:
+            session = self.computer_use_sessions[client_uid]
+            session.stop()
+            del self.computer_use_sessions[client_uid]
+
+            await websocket.send_text(
+                json.dumps({
+                    "type": "session_end",
+                    "message": "Computer use session stopped by user"
+                })
+            )
+        else:
+            await websocket.send_text(
+                json.dumps({
+                    "type": "computer_use_error",
+                    "error": "No active computer use session to stop"
+                })
+            )
