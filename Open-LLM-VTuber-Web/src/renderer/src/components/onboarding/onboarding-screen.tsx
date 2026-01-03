@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Text, Input, Button, VStack, HStack, Spinner } from '@chakra-ui/react';
+import { Box, Flex, Text, Input, Button, VStack, HStack, Spinner, Switch } from '@chakra-ui/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSetup } from '@/context/setup-context';
-import { FiKey, FiArrowRight, FiCheck, FiAlertCircle, FiEye, FiEyeOff, FiExternalLink } from 'react-icons/fi';
+import { FiKey, FiArrowRight, FiCheck, FiAlertCircle, FiEye, FiEyeOff, FiExternalLink, FiMonitor, FiShield } from 'react-icons/fi';
 
 const MotionBox = motion(Box);
 const MotionFlex = motion(Flex);
@@ -22,12 +22,22 @@ const colors = {
   textMuted: 'rgba(255, 255, 255, 0.35)',
   success: '#22c55e',
   error: '#ef4444',
+  orange: '#f59e0b',
 };
 
 function OnboardingScreen() {
-  const { apiKey, setApiKey, completeSetup, isLoading, error, clearError } = useSetup();
+  const { 
+    apiKey, 
+    setApiKey, 
+    pcControlEnabled, 
+    setPcControlEnabled, 
+    completeSetup, 
+    isLoading, 
+    error, 
+    clearError 
+  } = useSetup();
   const [showKey, setShowKey] = useState(false);
-  const [step, setStep] = useState<'welcome' | 'api-key' | 'success'>('welcome');
+  const [step, setStep] = useState<'welcome' | 'api-key' | 'pc-control' | 'success'>('welcome');
   const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,7 +48,7 @@ function OnboardingScreen() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleSubmit = async () => {
+  const handleApiKeySubmit = () => {
     if (!apiKey || apiKey.trim().length < 20) {
       setLocalError('Please enter a valid OpenAI API key (starts with sk-)');
       return;
@@ -50,6 +60,10 @@ function OnboardingScreen() {
     }
 
     setLocalError(null);
+    setStep('pc-control');
+  };
+
+  const handleFinalSubmit = async () => {
     const success = await completeSetup();
     if (success) {
       setStep('success');
@@ -197,6 +211,12 @@ function OnboardingScreen() {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.5 }}
             >
+              {/* Progress indicator */}
+              <HStack justify="center" mb={6} gap={2}>
+                <Box w="24px" h="3px" borderRadius="full" bg={colors.accentPrimary} />
+                <Box w="24px" h="3px" borderRadius="full" bg={colors.glassBorder} />
+              </HStack>
+
               {/* Card */}
               <Box
                 bg={colors.bgCard}
@@ -299,8 +319,8 @@ function OnboardingScreen() {
                     borderRadius="12px"
                     fontSize="md"
                     fontWeight="600"
-                    onClick={handleSubmit}
-                    disabled={isLoading || !apiKey}
+                    onClick={handleApiKeySubmit}
+                    disabled={!apiKey}
                     _hover={{
                       bg: 'linear-gradient(135deg, #9d71fb 0%, #7c3aed 100%)',
                       transform: 'translateY(-2px)',
@@ -316,14 +336,10 @@ function OnboardingScreen() {
                     }}
                     transition="all 0.2s"
                   >
-                    {isLoading ? (
-                      <Spinner size="sm" />
-                    ) : (
-                      <HStack gap={2}>
-                        <Text>Continue</Text>
-                        <FiArrowRight />
-                      </HStack>
-                    )}
+                    <HStack gap={2}>
+                      <Text>Continue</Text>
+                      <FiArrowRight />
+                    </HStack>
                   </Button>
                 </VStack>
 
@@ -363,6 +379,193 @@ function OnboardingScreen() {
               >
                 Your API key is stored securely on your device and never shared.
               </Text>
+            </MotionBox>
+          )}
+
+          {/* PC Control Setup */}
+          {step === 'pc-control' && (
+            <MotionBox
+              key="pc-control"
+              width="100%"
+              maxW="500px"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.5 }}
+            >
+              {/* Progress indicator */}
+              <HStack justify="center" mb={6} gap={2}>
+                <Box w="24px" h="3px" borderRadius="full" bg={colors.accentPrimary} />
+                <Box w="24px" h="3px" borderRadius="full" bg={colors.accentPrimary} />
+              </HStack>
+
+              {/* Card */}
+              <Box
+                bg={colors.bgCard}
+                borderRadius="24px"
+                border="1px solid"
+                borderColor={colors.glassBorder}
+                p={10}
+                backdropFilter="blur(20px)"
+              >
+                {/* Header */}
+                <VStack gap={2} mb={6} textAlign="center">
+                  <Box
+                    p={4}
+                    borderRadius="16px"
+                    bg="linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)"
+                    border="1px solid"
+                    borderColor="rgba(6, 182, 212, 0.2)"
+                    mb={2}
+                  >
+                    <FiMonitor size={28} color={colors.accentSecondary} />
+                  </Box>
+                  <Text
+                    fontSize="2xl"
+                    fontWeight="700"
+                    color={colors.textPrimary}
+                  >
+                    PC Control
+                  </Text>
+                  <Text
+                    fontSize="sm"
+                    color={colors.textSecondary}
+                    maxW="340px"
+                  >
+                    Let AI control your computer to complete tasks automatically
+                  </Text>
+                </VStack>
+
+                {/* Toggle Card */}
+                <Box
+                  p={5}
+                  borderRadius="16px"
+                  bg={pcControlEnabled ? 'rgba(6, 182, 212, 0.1)' : 'rgba(255, 255, 255, 0.02)'}
+                  border="1px solid"
+                  borderColor={pcControlEnabled ? 'rgba(6, 182, 212, 0.3)' : colors.glassBorder}
+                  mb={4}
+                  transition="all 0.3s"
+                >
+                  <Flex justify="space-between" align="center">
+                    <VStack align="start" gap={1}>
+                      <Text fontWeight="600" color={colors.textPrimary} fontSize="md">
+                        Enable PC Control
+                      </Text>
+                      <Text fontSize="xs" color={colors.textSecondary}>
+                        AI can control mouse & keyboard
+                      </Text>
+                    </VStack>
+                    <Switch.Root
+                      checked={pcControlEnabled}
+                      onCheckedChange={(e) => setPcControlEnabled(e.checked)}
+                      size="lg"
+                    >
+                      <Switch.HiddenInput />
+                      <Switch.Control
+                        bg={pcControlEnabled ? colors.accentSecondary : colors.glassBorder}
+                        _hover={{
+                          bg: pcControlEnabled ? '#0891b2' : colors.glassBorderHover,
+                        }}
+                      >
+                        <Switch.Thumb />
+                      </Switch.Control>
+                    </Switch.Root>
+                  </Flex>
+                </Box>
+
+                {/* Features list */}
+                {pcControlEnabled && (
+                  <MotionBox
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <VStack gap={3} mb={4}>
+                      <HStack w="100%" gap={3} align="start">
+                        <Box
+                          p={2}
+                          borderRadius="8px"
+                          bg="rgba(34, 197, 94, 0.15)"
+                        >
+                          <FiCheck size={14} color={colors.success} />
+                        </Box>
+                        <VStack align="start" gap={0}>
+                          <Text fontSize="sm" color={colors.textPrimary}>
+                            Open apps, browse web, create files
+                          </Text>
+                          <Text fontSize="xs" color={colors.textMuted}>
+                            AI sees your screen and acts like you
+                          </Text>
+                        </VStack>
+                      </HStack>
+                      <HStack w="100%" gap={3} align="start">
+                        <Box
+                          p={2}
+                          borderRadius="8px"
+                          bg="rgba(245, 158, 11, 0.15)"
+                        >
+                          <FiShield size={14} color={colors.orange} />
+                        </Box>
+                        <VStack align="start" gap={0}>
+                          <Text fontSize="sm" color={colors.textPrimary}>
+                            Emergency stop: top-left corner
+                          </Text>
+                          <Text fontSize="xs" color={colors.textMuted}>
+                            Move mouse to corner to stop instantly
+                          </Text>
+                        </VStack>
+                      </HStack>
+                    </VStack>
+                  </MotionBox>
+                )}
+
+                {/* Submit Button */}
+                <Button
+                  width="100%"
+                  height="56px"
+                  bg="linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)"
+                  color="white"
+                  borderRadius="12px"
+                  fontSize="md"
+                  fontWeight="600"
+                  onClick={handleFinalSubmit}
+                  disabled={isLoading}
+                  _hover={{
+                    bg: 'linear-gradient(135deg, #9d71fb 0%, #7c3aed 100%)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 8px 30px rgba(139, 92, 246, 0.4)',
+                  }}
+                  _active={{
+                    transform: 'translateY(0)',
+                  }}
+                  _disabled={{
+                    opacity: 0.5,
+                    cursor: 'not-allowed',
+                    _hover: { transform: 'none', boxShadow: 'none' },
+                  }}
+                  transition="all 0.2s"
+                >
+                  {isLoading ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <HStack gap={2}>
+                      <Text>Get Started</Text>
+                      <FiArrowRight />
+                    </HStack>
+                  )}
+                </Button>
+
+                {/* Skip option */}
+                <Text
+                  mt={4}
+                  fontSize="xs"
+                  color={colors.textMuted}
+                  textAlign="center"
+                >
+                  You can change this anytime in Settings
+                </Text>
+              </Box>
             </MotionBox>
           )}
 
@@ -407,10 +610,20 @@ function OnboardingScreen() {
               <Text
                 fontSize="md"
                 color={colors.textSecondary}
-                mb={8}
+                textAlign="center"
+                mb={2}
               >
                 Your AI avatar is ready to chat
               </Text>
+              {pcControlEnabled && (
+                <Text
+                  fontSize="sm"
+                  color={colors.accentSecondary}
+                  mb={6}
+                >
+                  🖥️ PC Control is enabled
+                </Text>
+              )}
 
               <MotionBox
                 animate={{ opacity: [0.5, 1, 0.5] }}
@@ -446,6 +659,3 @@ function OnboardingScreen() {
 }
 
 export default OnboardingScreen;
-
-
-

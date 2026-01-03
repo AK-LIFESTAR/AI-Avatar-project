@@ -30,6 +30,11 @@ class ApiKeyRequest(BaseModel):
     provider: str = "openai_llm"
 
 
+class ComputerUseRequest(BaseModel):
+    """Request model for computer use configuration."""
+    enabled: bool = False
+
+
 def init_config_routes() -> APIRouter:
     """
     Create and return API routes for configuration management.
@@ -115,6 +120,59 @@ def init_config_routes() -> APIRouter:
             logger.error(f"❌ Failed to save API key: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to save API key: {str(e)}")
     
+    @router.post("/computer-use")
+    async def save_computer_use_config(request: ComputerUseRequest):
+        """
+        Save the computer use configuration.
+        
+        Args:
+            request: ComputerUseRequest containing the enabled status.
+            
+        Returns:
+            JSONResponse with success status.
+        """
+        base_dir = _get_base_dir()
+        conf_path = base_dir / "conf.yaml"
+        
+        if not conf_path.exists():
+            # Try to create from template
+            template_path = base_dir / "config_templates" / "conf.default.yaml"
+            if template_path.exists():
+                import shutil
+                shutil.copy(template_path, conf_path)
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Configuration file not found and no template available"
+                )
+        
+        try:
+            # Load existing config
+            with open(conf_path, "r", encoding="utf-8") as f:
+                config = yaml.load(f)
+            
+            if config is None:
+                raise HTTPException(status_code=500, detail="Failed to parse configuration file")
+            
+            # Update computer_use_config
+            if "computer_use_config" not in config:
+                config["computer_use_config"] = {}
+            
+            config["computer_use_config"]["enabled"] = request.enabled
+            
+            # Save the updated config
+            with open(conf_path, "w", encoding="utf-8") as f:
+                yaml.dump(config, f)
+            
+            logger.info(f"✅ Computer Use config saved: enabled={request.enabled}")
+            return JSONResponse({"success": True, "message": "Computer Use config saved successfully"})
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"❌ Failed to save Computer Use config: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to save config: {str(e)}")
+
     @router.get("/status")
     async def get_config_status():
         """

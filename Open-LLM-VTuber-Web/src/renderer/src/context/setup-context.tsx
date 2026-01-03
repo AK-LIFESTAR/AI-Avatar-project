@@ -5,6 +5,8 @@ interface SetupContextType {
   isLoading: boolean;
   apiKey: string;
   setApiKey: (key: string) => void;
+  pcControlEnabled: boolean;
+  setPcControlEnabled: (enabled: boolean) => void;
   completeSetup: () => Promise<boolean>;
   resetSetup: () => void;
   error: string | null;
@@ -15,6 +17,7 @@ const SetupContext = createContext<SetupContextType | null>(null);
 
 const STORAGE_KEY = 'project-a-setup-complete';
 const API_KEY_STORAGE = 'project-a-api-key';
+const PC_CONTROL_STORAGE = 'project-a-pc-control';
 
 export function SetupProvider({ children }: { children: ReactNode }) {
   const [isSetupComplete, setIsSetupComplete] = useState<boolean>(() => {
@@ -25,11 +28,20 @@ export function SetupProvider({ children }: { children: ReactNode }) {
   const [apiKey, setApiKeyState] = useState<string>(() => {
     return localStorage.getItem(API_KEY_STORAGE) || '';
   });
+  const [pcControlEnabled, setPcControlEnabledState] = useState<boolean>(() => {
+    const stored = localStorage.getItem(PC_CONTROL_STORAGE);
+    return stored === 'true';
+  });
   const [error, setError] = useState<string | null>(null);
 
   const setApiKey = useCallback((key: string) => {
     setApiKeyState(key);
     setError(null);
+  }, []);
+
+  const setPcControlEnabled = useCallback((enabled: boolean) => {
+    setPcControlEnabledState(enabled);
+    localStorage.setItem(PC_CONTROL_STORAGE, enabled ? 'true' : 'false');
   }, []);
 
   const clearError = useCallback(() => {
@@ -50,7 +62,7 @@ export function SetupProvider({ children }: { children: ReactNode }) {
       const baseUrl = localStorage.getItem('baseUrl') || 'http://127.0.0.1:12393';
       
       // Send API key to backend to save in conf.yaml
-      const response = await fetch(`${baseUrl}/api/config/api-key`, {
+      const apiKeyResponse = await fetch(`${baseUrl}/api/config/api-key`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -61,9 +73,24 @@ export function SetupProvider({ children }: { children: ReactNode }) {
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      if (!apiKeyResponse.ok) {
+        const errorData = await apiKeyResponse.json().catch(() => ({}));
         throw new Error(errorData.detail || 'Failed to save API key');
+      }
+
+      // Save PC Control setting to backend
+      const pcControlResponse = await fetch(`${baseUrl}/api/config/computer-use`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          enabled: pcControlEnabled,
+        }),
+      });
+
+      if (!pcControlResponse.ok) {
+        console.warn('Failed to save PC Control setting, will use default');
       }
 
       // Save to local storage for persistence
@@ -85,13 +112,15 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [apiKey]);
+  }, [apiKey, pcControlEnabled]);
 
   const resetSetup = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(API_KEY_STORAGE);
+    localStorage.removeItem(PC_CONTROL_STORAGE);
     setIsSetupComplete(false);
     setApiKeyState('');
+    setPcControlEnabledState(false);
     setError(null);
   }, []);
 
@@ -100,11 +129,13 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     isLoading,
     apiKey,
     setApiKey,
+    pcControlEnabled,
+    setPcControlEnabled,
     completeSetup,
     resetSetup,
     error,
     clearError,
-  }), [isSetupComplete, isLoading, apiKey, setApiKey, completeSetup, resetSetup, error, clearError]);
+  }), [isSetupComplete, isLoading, apiKey, setApiKey, pcControlEnabled, setPcControlEnabled, completeSetup, resetSetup, error, clearError]);
 
   return (
     <SetupContext.Provider value={value}>
@@ -120,6 +151,3 @@ export function useSetup() {
   }
   return context;
 }
-
-
-
