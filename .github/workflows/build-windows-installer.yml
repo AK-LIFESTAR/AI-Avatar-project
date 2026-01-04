@@ -174,6 +174,36 @@ jobs:
             Write-Host "characters folder copied"
           }
           
+          # 6. live2d-models folder (3D avatar models)
+          if (Test-Path "live2d-models") {
+            Copy-Item -Path "live2d-models" -Destination "dist/backend/live2d-models" -Recurse -Force
+            Write-Host "live2d-models folder copied"
+          }
+          
+          # 7. backgrounds folder (background images)
+          if (Test-Path "backgrounds") {
+            Copy-Item -Path "backgrounds" -Destination "dist/backend/backgrounds" -Recurse -Force
+            Write-Host "backgrounds folder copied"
+          }
+          
+          # 8. avatars folder (avatar images)
+          if (Test-Path "avatars") {
+            Copy-Item -Path "avatars" -Destination "dist/backend/avatars" -Recurse -Force
+            Write-Host "avatars folder copied"
+          }
+          
+          # 9. web_tool folder (web utilities)
+          if (Test-Path "web_tool") {
+            Copy-Item -Path "web_tool" -Destination "dist/backend/web_tool" -Recurse -Force
+            Write-Host "web_tool folder copied"
+          }
+          
+          # 10. frontend folder (web UI)
+          if (Test-Path "frontend") {
+            Copy-Item -Path "frontend" -Destination "dist/backend/frontend" -Recurse -Force
+            Write-Host "frontend folder copied"
+          }
+          
           # Verify all critical files exist
           Write-Host "`n=== Verifying backend contents ===" 
           Get-ChildItem "dist/backend" -Name
@@ -361,6 +391,36 @@ jobs:
           if [ -d "characters" ]; then
             cp -R characters dist/backend/characters
             echo "characters folder copied"
+          fi
+          
+          # 6. live2d-models folder (3D avatar models)
+          if [ -d "live2d-models" ]; then
+            cp -R live2d-models dist/backend/live2d-models
+            echo "live2d-models folder copied"
+          fi
+          
+          # 7. backgrounds folder (background images)
+          if [ -d "backgrounds" ]; then
+            cp -R backgrounds dist/backend/backgrounds
+            echo "backgrounds folder copied"
+          fi
+          
+          # 8. avatars folder (avatar images)
+          if [ -d "avatars" ]; then
+            cp -R avatars dist/backend/avatars
+            echo "avatars folder copied"
+          fi
+          
+          # 9. web_tool folder (web utilities)
+          if [ -d "web_tool" ]; then
+            cp -R web_tool dist/backend/web_tool
+            echo "web_tool folder copied"
+          fi
+          
+          # 10. frontend folder (web UI)
+          if [ -d "frontend" ]; then
+            cp -R frontend dist/backend/frontend
+            echo "frontend folder copied"
           fi
           
           # Verify all critical files exist
