@@ -2,6 +2,7 @@
 
 import shutil
 import json
+import sys
 
 from pathlib import Path
 from typing import Dict, Optional, Union, Any
@@ -10,23 +11,64 @@ from loguru import logger
 from .types import MCPServer
 from .utils.path import validate_file
 
-DEFAULT_CONFIG_PATH = "mcp_servers.json"
+
+def get_base_dir() -> Path:
+    """Get the base directory for the application.
+    
+    In packaged builds (PyInstaller), returns the directory containing the executable.
+    In development mode, returns the project root directory.
+    """
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable (PyInstaller)
+        return Path(sys.executable).parent
+    else:
+        # Running in development mode - go up from src/open_llm_vtuber/mcpp/
+        return Path(__file__).parent.parent.parent.parent
+
+
+# Use absolute path for mcp_servers.json
+DEFAULT_CONFIG_PATH = get_base_dir() / "mcp_servers.json"
 
 
 class ServerRegistry:
     """MCP Server Manager for managing server files."""
 
-    def __init__(self, config_path: str | Path = DEFAULT_CONFIG_PATH) -> None:
-        """Initialize the MCP Server Manager."""
+    def __init__(self, config_path: str | Path | None = None) -> None:
+        """Initialize the MCP Server Manager.
+        
+        Args:
+            config_path: Path to the mcp_servers.json file. If None, uses default.
+        """
+        if config_path is None:
+            config_path = DEFAULT_CONFIG_PATH
+        
+        # If mcp_servers.json doesn't exist, gracefully handle it
+        config_path = Path(config_path)
+        if not config_path.exists():
+            logger.warning(
+                f"MCPSR: MCP servers config file not found at '{config_path}'. "
+                "MCP tools will not be available."
+            )
+            self.config = {"mcp_servers": {}}
+            self.servers: Dict[str, MCPServer] = {}
+            self.npx_available = False
+            self.uvx_available = False
+            self.node_available = False
+            return
+        
         try:
             config_path = validate_file(config_path, ".json")
         except ValueError:
-            logger.error(
-                f"MCPSR: File '{config_path}' does not exist, or is not a json file."
+            logger.warning(
+                f"MCPSR: File '{config_path}' is not a valid JSON file. "
+                "MCP tools will not be available."
             )
-            raise ValueError(
-                f"MCPSR: File '{config_path}' does not exist, or is not a json file."
-            )
+            self.config = {"mcp_servers": {}}
+            self.servers = {}
+            self.npx_available = False
+            self.uvx_available = False
+            self.node_available = False
+            return
 
         self.config: Dict[str, Union[str, dict]] = json.loads(
             config_path.read_text(encoding="utf-8")
