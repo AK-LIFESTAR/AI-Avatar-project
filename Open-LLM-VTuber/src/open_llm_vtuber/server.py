@@ -71,13 +71,27 @@ class WebSocketServer:
         - Use `clean_cache()` to clear and recreate the local cache directory.
     """
 
-    def __init__(self, config: Config, default_context_cache: ServiceContext = None):
+    def __init__(
+        self,
+        config: Config,
+        default_context_cache: ServiceContext = None,
+        base_dir: str | None = None,
+    ):
         self.app = FastAPI(title="Open-LLM-VTuber Server")  # Added title for clarity
         self.config = config
         self.default_context_cache = (
             default_context_cache or ServiceContext()
         )  # Use provided context or initialize a new empty one waiting to be loaded
         # It will be populated during the initialize method call
+
+        # Use base_dir for resolving paths (important for PyInstaller builds)
+        # If not provided, use current working directory
+        from pathlib import Path
+
+        if base_dir:
+            self.base_dir = Path(base_dir)
+        else:
+            self.base_dir = Path.cwd()
 
         # Add global CORS middleware
         self.app.add_middleware(
@@ -111,44 +125,57 @@ class WebSocketServer:
             )
 
         # Mount cache directory first (to ensure audio file access)
-        if not os.path.exists("cache"):
-            os.makedirs("cache")
+        cache_dir = str(self.base_dir / "cache")
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
         self.app.mount(
             "/cache",
-            CORSStaticFiles(directory="cache"),
+            CORSStaticFiles(directory=cache_dir),
             name="cache",
         )
 
-        # Mount static files with CORS-enabled handlers
-        self.app.mount(
-            "/live2d-models",
-            CORSStaticFiles(directory="live2d-models"),
-            name="live2d-models",
-        )
-        self.app.mount(
-            "/bg",
-            CORSStaticFiles(directory="backgrounds"),
-            name="backgrounds",
-        )
-        self.app.mount(
-            "/avatars",
-            AvatarStaticFiles(directory="avatars"),
-            name="avatars",
-        )
+        # Mount static files with CORS-enabled handlers (using absolute paths)
+        live2d_dir = str(self.base_dir / "live2d-models")
+        if os.path.exists(live2d_dir):
+            self.app.mount(
+                "/live2d-models",
+                CORSStaticFiles(directory=live2d_dir),
+                name="live2d-models",
+            )
+
+        bg_dir = str(self.base_dir / "backgrounds")
+        if os.path.exists(bg_dir):
+            self.app.mount(
+                "/bg",
+                CORSStaticFiles(directory=bg_dir),
+                name="backgrounds",
+            )
+
+        avatars_dir = str(self.base_dir / "avatars")
+        if os.path.exists(avatars_dir):
+            self.app.mount(
+                "/avatars",
+                AvatarStaticFiles(directory=avatars_dir),
+                name="avatars",
+            )
 
         # Mount web tool directory separately from frontend
-        self.app.mount(
-            "/web-tool",
-            CORSStaticFiles(directory="web_tool", html=True),
-            name="web_tool",
-        )
+        web_tool_dir = str(self.base_dir / "web_tool")
+        if os.path.exists(web_tool_dir):
+            self.app.mount(
+                "/web-tool",
+                CORSStaticFiles(directory=web_tool_dir, html=True),
+                name="web_tool",
+            )
 
         # Mount main frontend last (as catch-all)
-        self.app.mount(
-            "/",
-            CORSStaticFiles(directory="frontend", html=True),
-            name="frontend",
-        )
+        frontend_dir = str(self.base_dir / "frontend")
+        if os.path.exists(frontend_dir):
+            self.app.mount(
+                "/",
+                CORSStaticFiles(directory=frontend_dir, html=True),
+                name="frontend",
+            )
 
     async def initialize(self):
         """Asynchronously load the service context from config.

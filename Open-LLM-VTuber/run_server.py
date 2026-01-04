@@ -180,7 +180,8 @@ def run(console_log_level: str):
         logger.info("Proxy mode enabled - /proxy-ws endpoint will be available")
 
     # Initialize the WebSocket server (synchronous part)
-    server = WebSocketServer(config=config)
+    # Pass BASE_DIR so static files are resolved correctly in packaged builds
+    server = WebSocketServer(config=config, base_dir=str(BASE_DIR))
 
     # Perform asynchronous initialization (loading context, etc.)
     logger.info("Initializing server context...")
