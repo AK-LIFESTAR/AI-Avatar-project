@@ -79,6 +79,22 @@ jobs:
           # Install additional packages that might be needed
           pip install silero-vad websockets
 
+      - name: Prepare config files
+        working-directory: Open-LLM-VTuber
+        shell: pwsh
+        run: |
+          Write-Host "Creating default config files..." -ForegroundColor Cyan
+          
+          # Create conf.yaml from template (conf.yaml is gitignored)
+          if (!(Test-Path "conf.yaml")) {
+            if (Test-Path "config_templates/conf.default.yaml") {
+              Copy-Item "config_templates/conf.default.yaml" "conf.yaml"
+              Write-Host "Created conf.yaml from template"
+            } else {
+              Write-Host "WARNING: No config template found!"
+            }
+          }
+
       - name: Build Backend with PyInstaller
         working-directory: Open-LLM-VTuber
         shell: pwsh
