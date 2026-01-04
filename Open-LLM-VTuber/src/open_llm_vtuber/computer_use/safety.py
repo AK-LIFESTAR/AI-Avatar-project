@@ -311,3 +311,4 @@ class SafetyManager:
         self._kill_switch_triggered = False
         self._action_times.clear()
         logger.info("SafetyManager reset")
+

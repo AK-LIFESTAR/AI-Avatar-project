@@ -354,3 +354,4 @@ class ActionLogger:
             logger.info(f"Cleaned up {deleted_count} old log directories")
 
         return deleted_count
+

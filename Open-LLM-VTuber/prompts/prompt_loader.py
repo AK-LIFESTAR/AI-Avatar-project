@@ -1,10 +1,24 @@
 import os
+import sys
 import chardet
 from loguru import logger
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
 
-PROMPT_DIR = current_dir
+def get_prompt_dir() -> str:
+    """Get the prompts directory.
+    
+    In packaged builds (PyInstaller), returns the prompts directory next to the executable.
+    In development mode, returns the directory containing this file.
+    """
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable (PyInstaller)
+        return os.path.join(os.path.dirname(sys.executable), "prompts")
+    else:
+        # Running in development mode
+        return os.path.dirname(os.path.abspath(__file__))
+
+
+PROMPT_DIR = get_prompt_dir()
 PERSONA_PROMPT_DIR = os.path.join(PROMPT_DIR, "persona")
 UTIL_PROMPT_DIR = os.path.join(PROMPT_DIR, "utils")
 

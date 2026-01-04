@@ -302,3 +302,4 @@ class VisionEngine:
             self._sct.close()
             self._sct = None
             logger.debug("VisionEngine closed")
+

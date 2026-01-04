@@ -412,3 +412,4 @@ class ExecutionLoop:
             List of action dictionaries.
         """
         return self._action_history.copy()
+

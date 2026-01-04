@@ -1,10 +1,26 @@
 import json
+import sys
 import chardet
+from pathlib import Path
 from loguru import logger
 
 # This class will only prepare the payload for the live2d model
 # the process of sending the payload should be done by the caller
 # This class is **Not responsible** for sending the payload to the server
+
+
+def get_base_dir() -> Path:
+    """Get the base directory for the application.
+    
+    In packaged builds (PyInstaller), returns the directory containing the executable.
+    In development mode, returns the project root directory.
+    """
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable (PyInstaller)
+        return Path(sys.executable).parent
+    else:
+        # Running in development mode - go up from src/open_llm_vtuber/
+        return Path(__file__).parent.parent.parent
 
 
 class Live2dModel:
@@ -26,8 +42,14 @@ class Live2dModel:
     emo_str: str
 
     def __init__(
-        self, live2d_model_name: str, model_dict_path: str = "model_dict.json"
+        self, live2d_model_name: str, model_dict_path: str | None = None
     ):
+        # Use absolute path for model_dict.json to work in packaged builds
+        if model_dict_path is None:
+            model_dict_path = str(get_base_dir() / "model_dict.json")
+        elif not Path(model_dict_path).is_absolute():
+            model_dict_path = str(get_base_dir() / model_dict_path)
+        
         self.model_dict_path: str = model_dict_path
         self.live2d_model_name: str = live2d_model_name
         self.set_model(live2d_model_name)
