@@ -148,6 +148,12 @@ jobs:
             Write-Host "ERROR: PyInstaller build failed!" -ForegroundColor Red
             exit 1
           }
+          
+          # CRITICAL: Manually copy prompts folder since PyInstaller --add-data is unreliable
+          Write-Host "Manually copying prompts folder to ensure it's included..."
+          Copy-Item -Path "prompts" -Destination "dist/backend/prompts" -Recurse -Force
+          Write-Host "Prompts folder contents:"
+          Get-ChildItem -Recurse "dist/backend/prompts"
 
       - name: Copy Backend to Electron
         shell: pwsh
@@ -307,6 +313,12 @@ jobs:
             echo "ERROR: PyInstaller build failed!"
             exit 1
           fi
+          
+          # CRITICAL: Manually copy prompts folder since PyInstaller --add-data is unreliable
+          echo "Manually copying prompts folder to ensure it's included..."
+          cp -R prompts dist/backend/prompts
+          echo "Prompts folder contents:"
+          find dist/backend/prompts -type f
 
       - name: Copy Backend to Electron
         run: |
