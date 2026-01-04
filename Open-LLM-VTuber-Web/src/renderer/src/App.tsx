@@ -231,7 +231,7 @@ function App(): JSX.Element {
 }
 
 function AppWithSetupGate(): JSX.Element {
-  const { isSetupComplete } = useSetup();
+  const { isSetupComplete, isCheckingSetup } = useSetup();
   const { status, downloadProgress, isReady } = useBackendStatus();
   const isElectron = window.api !== undefined;
   
@@ -246,7 +246,17 @@ function AppWithSetupGate(): JSX.Element {
     );
   }
   
-  // Show onboarding if setup is not complete
+  // Show loading while checking if setup is complete
+  if (isCheckingSetup) {
+    return (
+      <BackendLoadingScreen 
+        status="starting"
+        downloadProgress={0}
+      />
+    );
+  }
+  
+  // Show onboarding if setup is not complete (API key not configured)
   if (!isSetupComplete) {
     return <OnboardingScreen />;
   }

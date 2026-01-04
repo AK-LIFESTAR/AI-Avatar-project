@@ -120,6 +120,55 @@ def init_config_routes() -> APIRouter:
             logger.error(f"❌ Failed to save API key: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to save API key: {str(e)}")
     
+    @router.get("/status")
+    async def get_config_status():
+        """
+        Check if the API key is configured in the backend.
+        
+        Returns:
+            JSONResponse with api_key_configured status.
+        """
+        base_dir = _get_base_dir()
+        conf_path = base_dir / "conf.yaml"
+        
+        if not conf_path.exists():
+            return JSONResponse({
+                "api_key_configured": False,
+                "message": "Configuration file not found"
+            })
+        
+        try:
+            with open(conf_path, "r", encoding="utf-8") as f:
+                config = yaml.load(f)
+            
+            if config is None:
+                return JSONResponse({
+                    "api_key_configured": False,
+                    "message": "Failed to parse configuration"
+                })
+            
+            # Check if API key is configured for openai_llm
+            character_config = config.get("character_config", {})
+            agent_config = character_config.get("agent_config", {})
+            llm_configs = agent_config.get("llm_configs", {})
+            openai_config = llm_configs.get("openai_llm", {})
+            api_key = openai_config.get("llm_api_key", "")
+            
+            # Check if key is set and not a placeholder
+            is_configured = bool(api_key) and len(api_key) > 10 and not api_key.startswith("YOUR")
+            
+            return JSONResponse({
+                "api_key_configured": is_configured,
+                "message": "API key configured" if is_configured else "API key not configured"
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to check config status: {e}")
+            return JSONResponse({
+                "api_key_configured": False,
+                "message": f"Error checking configuration: {str(e)}"
+            })
+    
     @router.post("/computer-use")
     async def save_computer_use_config(request: ComputerUseRequest):
         """

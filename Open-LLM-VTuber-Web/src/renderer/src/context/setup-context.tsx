@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode,
 
 interface SetupContextType {
   isSetupComplete: boolean;
+  isCheckingSetup: boolean;
   isLoading: boolean;
   apiKey: string;
   setApiKey: (key: string) => void;
@@ -20,10 +21,8 @@ const API_KEY_STORAGE = 'project-a-api-key';
 const PC_CONTROL_STORAGE = 'project-a-pc-control';
 
 export function SetupProvider({ children }: { children: ReactNode }) {
-  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored === 'true';
-  });
+  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(false);
+  const [isCheckingSetup, setIsCheckingSetup] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKeyState] = useState<string>(() => {
     return localStorage.getItem(API_KEY_STORAGE) || '';
@@ -33,6 +32,46 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     return stored === 'true';
   });
   const [error, setError] = useState<string | null>(null);
+
+  // Check if API key is actually configured in the backend on startup
+  useEffect(() => {
+    const checkBackendApiKey = async () => {
+      try {
+        const baseUrl = localStorage.getItem('baseUrl') || 'http://127.0.0.1:12393';
+        const response = await fetch(`${baseUrl}/api/config/status`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Only mark as complete if backend confirms API key is configured
+          if (data.api_key_configured) {
+            setIsSetupComplete(true);
+            localStorage.setItem(STORAGE_KEY, 'true');
+          } else {
+            // API key not configured - show onboarding
+            setIsSetupComplete(false);
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        } else {
+          // Backend not responding properly - check localStorage as fallback
+          const stored = localStorage.getItem(STORAGE_KEY);
+          const hasStoredKey = localStorage.getItem(API_KEY_STORAGE);
+          setIsSetupComplete(stored === 'true' && !!hasStoredKey);
+        }
+      } catch (err) {
+        // Backend not available - use localStorage fallback
+        const stored = localStorage.getItem(STORAGE_KEY);
+        const hasStoredKey = localStorage.getItem(API_KEY_STORAGE);
+        setIsSetupComplete(stored === 'true' && !!hasStoredKey);
+      } finally {
+        setIsCheckingSetup(false);
+      }
+    };
+
+    checkBackendApiKey();
+  }, []);
 
   const setApiKey = useCallback((key: string) => {
     setApiKeyState(key);
@@ -126,6 +165,7 @@ export function SetupProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     isSetupComplete,
+    isCheckingSetup,
     isLoading,
     apiKey,
     setApiKey,
@@ -135,7 +175,7 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     resetSetup,
     error,
     clearError,
-  }), [isSetupComplete, isLoading, apiKey, setApiKey, pcControlEnabled, setPcControlEnabled, completeSetup, resetSetup, error, clearError]);
+  }), [isSetupComplete, isCheckingSetup, isLoading, apiKey, setApiKey, pcControlEnabled, setPcControlEnabled, completeSetup, resetSetup, error, clearError]);
 
   return (
     <SetupContext.Provider value={value}>
