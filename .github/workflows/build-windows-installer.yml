@@ -149,11 +149,34 @@ jobs:
             exit 1
           }
           
-          # CRITICAL: Manually copy prompts folder since PyInstaller --add-data is unreliable
-          Write-Host "Manually copying prompts folder to ensure it's included..."
+          # CRITICAL: Manually copy ALL data files since PyInstaller --add-data is completely unreliable
+          Write-Host "Manually copying data files to ensure they're included..."
+          
+          # 1. Prompts folder
           Copy-Item -Path "prompts" -Destination "dist/backend/prompts" -Recurse -Force
-          Write-Host "Prompts folder contents:"
-          Get-ChildItem -Recurse "dist/backend/prompts"
+          Write-Host "Prompts folder copied"
+          
+          # 2. model_dict.json (required for Live2D)
+          Copy-Item -Path "model_dict.json" -Destination "dist/backend/model_dict.json" -Force
+          Write-Host "model_dict.json copied"
+          
+          # 3. mcp_servers.json (required for MCP tools)
+          Copy-Item -Path "mcp_servers.json" -Destination "dist/backend/mcp_servers.json" -Force
+          Write-Host "mcp_servers.json copied"
+          
+          # 4. config_templates folder
+          Copy-Item -Path "config_templates" -Destination "dist/backend/config_templates" -Recurse -Force
+          Write-Host "config_templates folder copied"
+          
+          # 5. characters folder (avatar configs)
+          if (Test-Path "characters") {
+            Copy-Item -Path "characters" -Destination "dist/backend/characters" -Recurse -Force
+            Write-Host "characters folder copied"
+          }
+          
+          # Verify all critical files exist
+          Write-Host "`n=== Verifying backend contents ===" 
+          Get-ChildItem "dist/backend" -Name
 
       - name: Copy Backend to Electron
         shell: pwsh
@@ -315,10 +338,35 @@ jobs:
           fi
           
           # CRITICAL: Manually copy prompts folder since PyInstaller --add-data is unreliable
-          echo "Manually copying prompts folder to ensure it's included..."
+          # CRITICAL: Manually copy ALL data files since PyInstaller --add-data is completely unreliable
+          echo "Manually copying data files to ensure they're included..."
+          
+          # 1. Prompts folder
           cp -R prompts dist/backend/prompts
-          echo "Prompts folder contents:"
-          find dist/backend/prompts -type f
+          echo "Prompts folder copied"
+          
+          # 2. model_dict.json (required for Live2D)
+          cp model_dict.json dist/backend/model_dict.json
+          echo "model_dict.json copied"
+          
+          # 3. mcp_servers.json (required for MCP tools)
+          cp mcp_servers.json dist/backend/mcp_servers.json
+          echo "mcp_servers.json copied"
+          
+          # 4. config_templates folder
+          cp -R config_templates dist/backend/config_templates
+          echo "config_templates folder copied"
+          
+          # 5. characters folder (avatar configs)
+          if [ -d "characters" ]; then
+            cp -R characters dist/backend/characters
+            echo "characters folder copied"
+          fi
+          
+          # Verify all critical files exist
+          echo ""
+          echo "=== Verifying backend contents ===" 
+          ls -la dist/backend/
 
       - name: Copy Backend to Electron
         run: |
