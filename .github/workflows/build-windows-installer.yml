@@ -1,44 +1,202 @@
+# =============================================================================
+# Project A Prototype - Windows Installer Build
+# =============================================================================
+# This workflow builds a Windows installer that includes:
+# 1. Electron frontend app
+# 2. Python backend (compiled with PyInstaller for reliability)
+#
+# The backend is built in ONE-FOLDER mode (not one-file) which is more reliable
+# and compatible with corporate security software.
+# =============================================================================
+
 name: Build Windows installer (Project A Prototype)
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ "main", "master" ]
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+
 jobs:
   build-windows:
     runs-on: windows-latest
-    timeout-minutes: 90
-
+    
     steps:
+      # ========================================
+      # Setup
+      # ========================================
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: |
-            Open-LLM-VTuber-Web/package-lock.json
+          node-version: ${{ env.NODE_VERSION }}
 
-      # Note: We don't need to setup Python here anymore because
-      # the embedded Python build script downloads Python embeddable package
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Build backend (Embedded Python)
+      # ========================================
+      # Build Python Backend with PyInstaller
+      # ========================================
+      - name: Install PyInstaller and dependencies
         shell: pwsh
-        env:
-          GITHUB_SHA: ${{ github.sha }}
         run: |
-          cd Open-LLM-VTuber
-          # Build backend using embedded Python (more compatible with corporate security)
-          # This downloads Python embeddable and bundles it with all dependencies
-          powershell -ExecutionPolicy Bypass -File .\scripts\build_backend_embedded_python.ps1 2>&1 | Tee-Object -FilePath ..\backend-build.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Host "Installing PyInstaller and build tools..." -ForegroundColor Cyan
+          pip install --upgrade pip
+          pip install pyinstaller
 
+      - name: Install Backend Python Dependencies
+        working-directory: Open-LLM-VTuber
+        shell: pwsh
+        run: |
+          Write-Host "Installing backend dependencies..." -ForegroundColor Cyan
+          
+          # Install PyTorch CPU (smaller, faster download)
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          
+          # Install from requirements.txt (excluding torch)
+          if (Test-Path "requirements.txt") {
+            $filtered = Get-Content requirements.txt | Where-Object { $_ -notmatch '^\s*torch==' }
+            $filtered | Out-File -FilePath requirements-filtered.txt -Encoding ascii
+            pip install -r requirements-filtered.txt
+          }
+          
+          # Install additional packages that might be needed
+          pip install silero-vad websockets
+
+      - name: Build Backend with PyInstaller
+        working-directory: Open-LLM-VTuber
+        shell: pwsh
+        run: |
+          Write-Host "Building backend with PyInstaller (one-folder mode)..." -ForegroundColor Cyan
+          
+          # Create PyInstaller spec for one-folder build
+          # One-folder is MORE RELIABLE than one-file for corporate environments
+          
+          pyinstaller `
+            --name "backend" `
+            --onedir `
+            --noconfirm `
+            --clean `
+            --console `
+            --add-data "conf.yaml;." `
+            --add-data "model_dict.json;." `
+            --add-data "mcp_servers.json;." `
+            --add-data "src;src" `
+            --add-data "characters;characters" `
+            --add-data "live2d-models;live2d-models" `
+            --add-data "prompts;prompts" `
+            --add-data "config_templates;config_templates" `
+            --add-data "upgrade_codes;upgrade_codes" `
+            --add-data "web_tool;web_tool" `
+            --hidden-import "fastapi" `
+            --hidden-import "uvicorn" `
+            --hidden-import "uvicorn.logging" `
+            --hidden-import "uvicorn.protocols" `
+            --hidden-import "uvicorn.protocols.http" `
+            --hidden-import "uvicorn.protocols.http.auto" `
+            --hidden-import "uvicorn.protocols.websockets" `
+            --hidden-import "uvicorn.protocols.websockets.auto" `
+            --hidden-import "uvicorn.lifespan" `
+            --hidden-import "uvicorn.lifespan.on" `
+            --hidden-import "starlette" `
+            --hidden-import "starlette.routing" `
+            --hidden-import "starlette.middleware" `
+            --hidden-import "pydantic" `
+            --hidden-import "pydantic_core" `
+            --hidden-import "websockets" `
+            --hidden-import "httpx" `
+            --hidden-import "openai" `
+            --hidden-import "anthropic" `
+            --hidden-import "edge_tts" `
+            --hidden-import "torch" `
+            --hidden-import "numpy" `
+            --hidden-import "scipy" `
+            --hidden-import "sounddevice" `
+            --hidden-import "pydub" `
+            --hidden-import "yaml" `
+            --hidden-import "loguru" `
+            --hidden-import "silero_vad" `
+            --hidden-import "tiktoken" `
+            --hidden-import "tiktoken_ext" `
+            --hidden-import "tiktoken_ext.openai_public" `
+            --hidden-import "multidict" `
+            --hidden-import "yarl" `
+            --hidden-import "aiohttp" `
+            --hidden-import "anyio" `
+            --hidden-import "sniffio" `
+            --hidden-import "certifi" `
+            --hidden-import "charset_normalizer" `
+            --hidden-import "idna" `
+            --hidden-import "urllib3" `
+            --collect-all "torch" `
+            --collect-all "silero_vad" `
+            --collect-all "tiktoken" `
+            run_server.py
+          
+          # Check if build succeeded
+          if (!(Test-Path "dist/backend/backend.exe")) {
+            Write-Host "ERROR: PyInstaller build failed!" -ForegroundColor Red
+            exit 1
+          }
+          
+          # Show build result
+          $size = (Get-ChildItem -Path "dist/backend" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+          Write-Host "Backend built successfully: $([math]::Round($size, 2)) MB" -ForegroundColor Green
+
+      - name: Copy Backend to Electron
+        shell: pwsh
+        run: |
+          $sourceDir = "Open-LLM-VTuber/dist/backend"
+          $targetDir = "Open-LLM-VTuber-Web/backend-dist"
+          
+          Write-Host "Copying backend to Electron project..." -ForegroundColor Cyan
+          
+          # Clean target
+          if (Test-Path $targetDir) {
+            Remove-Item -Recurse -Force $targetDir
+          }
+          
+          # Copy entire backend folder
+          Copy-Item -Path $sourceDir -Destination $targetDir -Recurse
+          
+          # Create default conf.yaml from template if not exists
+          $confPath = Join-Path $targetDir "conf.yaml"
+          if (!(Test-Path $confPath)) {
+            $templatePath = "Open-LLM-VTuber/config_templates/conf.default.yaml"
+            if (Test-Path $templatePath) {
+              Copy-Item $templatePath $confPath
+              Write-Host "Created default conf.yaml" -ForegroundColor Green
+            }
+          }
+          
+          # Write build ID for cache invalidation
+          $buildId = "${{ github.sha }}"
+          $buildIdPath = Join-Path $targetDir "backend-build-id.txt"
+          [System.IO.File]::WriteAllText($buildIdPath, $buildId, [System.Text.UTF8Encoding]::new($false))
+          
+          # Verify
+          Write-Host "Backend copied. Contents:" -ForegroundColor Cyan
+          Get-ChildItem $targetDir | Select-Object Name, Length | Format-Table
+
+      # ========================================
+      # Build Electron App
+      # ========================================
       - name: Install Electron deps
         working-directory: Open-LLM-VTuber-Web
         run: npm ci
@@ -46,65 +204,58 @@ jobs:
       - name: Build Windows installer (NSIS)
         working-directory: Open-LLM-VTuber-Web
         env:
-          # Avoid flaky electron binary mirrors; use official default
-          ELECTRON_GET_USE_PROXY: "false"
-          # Provide tokens in case any publisher code path still tries to auth
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Enable debug logging via env var (electron-builder uses DEBUG env)
-          DEBUG: electron-builder
-        shell: pwsh
         run: |
-          Write-Host "=== Building Electron frontend ===" -ForegroundColor Cyan
-          npm run build 2>&1 | Tee-Object -FilePath ..\electron-build.log
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "Frontend build failed with exit code $LASTEXITCODE" -ForegroundColor Red
-            exit $LASTEXITCODE
-          }
-          
-          Write-Host "=== Listing backend-dist contents (first 30 items) ===" -ForegroundColor Cyan
-          Get-ChildItem -Path backend-dist -Recurse | Select-Object -First 30 | ForEach-Object { Write-Host $_.FullName }
-          
-          Write-Host "=== Checking for python.exe in backend-dist ===" -ForegroundColor Cyan
-          if (Test-Path "backend-dist\python.exe") {
-            Write-Host "✅ Found python.exe (embedded Python mode)" -ForegroundColor Green
-          } else {
-            Write-Host "⚠️ No python.exe found" -ForegroundColor Yellow
-          }
-          
-          Write-Host "=== Running electron-builder ===" -ForegroundColor Cyan
-          npx electron-builder --win --publish never 2>&1 | Tee-Object -Append -FilePath ..\electron-build.log
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "Electron builder failed with exit code $LASTEXITCODE" -ForegroundColor Red
-            exit $LASTEXITCODE
-          }
+          npm run build
+          npx electron-builder --win --config electron-builder.yml
 
+      # ========================================
+      # Upload and Release
+      # ========================================
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: Open-LLM-VTuber-Web/release/*/*.exe
-          if-no-files-found: error
+          path: Open-LLM-VTuber-Web/release/**/*.exe
+          retention-days: 30
 
-      - name: Upload build logs (always)
+      - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
           path: |
-            backend-build.log
-            electron-build.log
-          if-no-files-found: ignore
+            Open-LLM-VTuber/build/**/*.log
+            Open-LLM-VTuber/dist/**/*.log
+            Open-LLM-VTuber-Web/release/**/*.log
+          retention-days: 7
 
-      # Also publish to a GitHub Release so you can share a direct download link
-      # without requiring the recipient to have access to Actions artifacts.
-      - name: Publish to GitHub Release (windows-latest)
-        uses: softprops/action-gh-release@v2
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
+          files: |
+            Open-LLM-VTuber-Web/release/**/*.exe
           tag_name: windows-latest
-          name: Project A Prototype - Windows installer (latest)
+          name: "Project A Prototype - Windows installer (latest)"
           prerelease: true
-          # Use single pattern (Windows is case-insensitive, both patterns matched same file)
-          files: Open-LLM-VTuber-Web/release/*/*.exe
-          fail_on_unmatched_files: false
-
+          body: |
+            ## Project A Prototype - Windows Installer
+            
+            **Build:** ${{ github.sha }}
+            **Date:** ${{ github.event.head_commit.timestamp }}
+            
+            ### Installation
+            1. Download and run the .exe installer
+            2. Follow the installation wizard
+            3. Launch "Project A Prototype" from your desktop or start menu
+            
+            ### Requirements
+            - Windows 10/11 (64-bit)
+            - 4GB RAM minimum
+            - Internet connection for AI features
+            
+            ### First Run
+            - The app will prompt you to enter your OpenAI API key
+            - Configure language and avatar preferences in settings
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

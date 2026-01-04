@@ -117,13 +117,41 @@ export class BackendManager {
     }
   }
 
+  /**
+   * Get the path to the backend executable.
+   * Priority:
+   * 1. backend.exe (PyInstaller one-folder build - most reliable)
+   * 2. open-llm-vtuber-backend.exe (legacy PyInstaller one-file)
+   */
   private getBackendExecutablePath(): string {
-    const exeName = process.platform === 'win32' ? 'open-llm-vtuber-backend.exe' : 'open-llm-vtuber-backend';
-    return path.join(this.backendDir, exeName);
+    // First check for PyInstaller one-folder build (preferred)
+    const pyinstallerExe = path.join(this.backendDir, 'backend.exe');
+    if (fs.existsSync(pyinstallerExe)) {
+      return pyinstallerExe;
+    }
+    
+    // Legacy PyInstaller one-file build
+    const legacyExe = process.platform === 'win32' 
+      ? path.join(this.backendDir, 'open-llm-vtuber-backend.exe')
+      : path.join(this.backendDir, 'open-llm-vtuber-backend');
+    if (fs.existsSync(legacyExe)) {
+      return legacyExe;
+    }
+    
+    return pyinstallerExe; // Return default path even if not found
   }
 
   /**
-   * Check if we have embedded Python (more compatible with corporate security).
+   * Check if we have a compiled backend executable (PyInstaller).
+   * This is the preferred method for Windows distribution.
+   */
+  private hasCompiledBackend(): boolean {
+    const exePath = this.getBackendExecutablePath();
+    return fs.existsSync(exePath);
+  }
+
+  /**
+   * Check if we have embedded Python (fallback for corporate security).
    * Embedded Python bundle contains: python.exe + run_server.py
    */
   private hasEmbeddedPython(): boolean {
@@ -208,39 +236,43 @@ export class BackendManager {
     const logFd = fs.openSync(logPath, 'a');
 
     // Strategy priority:
-    // 1. Embedded Python (most compatible with corporate security)
-    // 2. PyInstaller exe (legacy, may be blocked by antivirus)
+    // 1. PyInstaller compiled backend (most reliable for distribution)
+    // 2. Embedded Python (fallback for corporate security)
     // 3. Dev mode fallback (uv run)
 
+    const hasCompiledBackend = this.hasCompiledBackend();
     const hasEmbeddedPython = this.hasEmbeddedPython();
-    const exePath = this.getBackendExecutablePath();
-    const hasExe = fs.existsSync(exePath);
 
-    if (hasEmbeddedPython) {
-      // PREFERRED: Embedded Python - uses official Python interpreter
-      // This is much more compatible with corporate security software
-      // because python.exe is a well-known signed executable.
+    if (hasCompiledBackend) {
+      // PREFERRED: PyInstaller compiled backend (one-folder mode)
+      // This is the most reliable method for Windows distribution.
+      // One-folder mode has better compatibility than one-file mode.
+      const exePath = this.getBackendExecutablePath();
+      console.log(`Starting backend with compiled executable: ${exePath}`);
+      this.proc = spawn(exePath, [], {
+        cwd: this.backendDir,
+        stdio: ['ignore', logFd, logFd],
+        detached: true,
+        env: {
+          ...process.env,
+          // Ensure the executable can find its dependencies
+          PATH: `${this.backendDir};${process.env.PATH}`,
+        },
+      });
+    } else if (hasEmbeddedPython) {
+      // FALLBACK: Embedded Python - uses official Python interpreter
+      // This might work better in some corporate environments.
       const pythonExe = this.getEmbeddedPythonPath();
       console.log(`Starting backend with embedded Python: ${pythonExe}`);
       this.proc = spawn(pythonExe, ['run_server.py'], {
         cwd: this.backendDir,
         stdio: ['ignore', logFd, logFd],
         detached: true,
-        // Set environment to help Python find modules
         env: {
           ...process.env,
           PYTHONPATH: this.backendDir,
-          // Disable Python's user site-packages to avoid conflicts
           PYTHONNOUSERSITE: '1',
         },
-      });
-    } else if (hasExe) {
-      // LEGACY: PyInstaller executable (may be blocked by antivirus)
-      console.log(`Starting backend with PyInstaller exe: ${exePath}`);
-      this.proc = spawn(exePath, [], {
-        cwd: this.backendDir,
-        stdio: ['ignore', logFd, logFd],
-        detached: true,
       });
     } else {
       // DEV MODE: Use local uv environment

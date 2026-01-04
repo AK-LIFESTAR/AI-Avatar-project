@@ -34,6 +34,10 @@ nsis:
   # Request admin rights to avoid permission issues
   allowElevation: true
   perMachine: false
+  # Use one-click installer for simpler/faster installation
+  oneClick: true
+  # Run app after install
+  runAfterFinish: true
 mac:
   icon: resources/icon.icns
   target:
