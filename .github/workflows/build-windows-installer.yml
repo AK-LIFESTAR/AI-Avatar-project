@@ -142,6 +142,7 @@ jobs:
             --collect-all "torch" `
             --collect-all "silero_vad" `
             --collect-all "tiktoken" `
+            --collect-data "prompts" `
             run_server.py
           
           if (!(Test-Path "dist/backend/backend.exe")) {
@@ -301,6 +302,7 @@ jobs:
             --collect-all "torch" \
             --collect-all "silero_vad" \
             --collect-all "tiktoken" \
+            --collect-data "prompts" \
             run_server.py
           
           if [ ! -f "dist/backend/backend" ]; then
