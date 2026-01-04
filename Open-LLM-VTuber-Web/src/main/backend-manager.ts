@@ -312,9 +312,14 @@ export class BackendManager {
     // Allow the child to continue running independently; we will still try to stop it on quit.
     this.proc.unref();
 
-    // Wait briefly for it to come up.
-    // First launch can take longer on slower machines (model loading, disk IO, etc).
-    const startDeadlineMs = Date.now() + 60000;
+    // Wait for backend to come up.
+    // IMPORTANT: First launch can take 5-10 MINUTES because it downloads
+    // speech recognition models (~1GB). Subsequent launches are fast.
+    // Timeout: 10 minutes (600 seconds) for first launch, checking every second.
+    const TIMEOUT_MS = 600000; // 10 minutes
+    const startDeadlineMs = Date.now() + TIMEOUT_MS;
+    let lastLogMessage = '';
+    
     while (Date.now() < startDeadlineMs) {
       // eslint-disable-next-line no-await-in-loop
       if (await this.isPortOpen()) {
@@ -323,21 +328,38 @@ export class BackendManager {
       }
       // If it failed to spawn or exited early, don't keep waiting.
       if (this.lastSpawnError || this.lastExit) break;
+      
+      // Check log for download progress every few seconds (helps debugging)
+      const currentTail = this.readLogTail(logPath, 500);
+      if (currentTail && currentTail !== lastLogMessage) {
+        lastLogMessage = currentTail;
+        // Log progress to console (not shown to user, but helpful for debugging)
+        if (currentTail.includes('MiB/s') || currentTail.includes('Downloading')) {
+          console.log('Backend is downloading models...');
+        }
+      }
+      
       // eslint-disable-next-line no-await-in-loop
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 1000)); // Check every second
     }
 
     this.state = 'stopped';
     const tail = this.readLogTail(logPath);
+    
+    // Check if it was a download timeout vs other error
+    const isDownloading = tail?.includes('MiB/s') || tail?.includes('Downloading') || tail?.includes('.tar.bz2');
+    
     const extra =
       this.lastSpawnError
         ? `\n\nSpawn error:\n${this.lastSpawnError}`
         : this.lastExit
           ? `\n\nBackend exited early:\ncode=${this.lastExit.code} signal=${this.lastExit.signal ?? 'null'}`
-          : '';
+          : isDownloading
+            ? '\n\n⏳ The backend is still downloading required AI models (~1GB).\nPlease wait a few more minutes and try again, or check your internet connection.'
+            : '';
     dialog.showErrorBox(
       'Backend failed to start',
-      `Tried to start backend but it did not open port ${this.port} within 60 seconds.${extra}\n\nSee log:\n${logPath}${
+      `Tried to start backend but it did not open port ${this.port} within 10 minutes.${extra}\n\nSee log:\n${logPath}${
         tail ? `\n\n--- Log tail ---\n${tail}` : ''
       }`,
     );
