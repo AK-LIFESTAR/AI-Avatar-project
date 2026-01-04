@@ -232,7 +232,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: Open-LLM-VTuber-Web/release/**/*.exe
+          # Only upload setup installer, not other exe files
+          path: Open-LLM-VTuber-Web/release/**/*-setup.exe
           retention-days: 30
 
       - name: Upload build logs
@@ -246,32 +247,57 @@ jobs:
             Open-LLM-VTuber-Web/release/**/*.log
           retention-days: 7
 
+      - name: Find installer file
+        id: find-installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path "Open-LLM-VTuber-Web/release" -Filter "*-setup.exe" -Recurse | Select-Object -First 1
+          if ($installer) {
+            Write-Host "Found installer: $($installer.FullName)"
+            echo "INSTALLER_PATH=$($installer.FullName)" >> $env:GITHUB_OUTPUT
+            echo "INSTALLER_NAME=$($installer.Name)" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "ERROR: No setup.exe found!"
+            exit 1
+          }
+
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            Open-LLM-VTuber-Web/release/**/*.exe
+          # ONLY upload the setup installer - not other exe files
+          files: ${{ steps.find-installer.outputs.INSTALLER_PATH }}
           tag_name: windows-latest
-          name: "Project A Prototype - Windows installer (latest)"
-          prerelease: true
+          name: "🚀 Project A Prototype - Windows Installer"
+          prerelease: false
           body: |
-            ## Project A Prototype - Windows Installer
+            ## 📥 Download Instructions
             
-            **Build:** ${{ github.sha }}
-            **Date:** ${{ github.event.head_commit.timestamp }}
+            **👉 Click the file below to download:**
             
-            ### Installation
-            1. Download and run the .exe installer
-            2. Follow the installation wizard
-            3. Launch "Project A Prototype" from your desktop or start menu
+            ### `${{ steps.find-installer.outputs.INSTALLER_NAME }}`
             
-            ### Requirements
+            ---
+            
+            ## 📋 Installation Steps
+            
+            1. **Download** the installer file above
+            2. **Run** the downloaded `.exe` file
+            3. **Follow** the installation wizard
+            4. **Launch** "Project A Prototype" from your desktop
+            
+            ## 💻 Requirements
+            
             - Windows 10/11 (64-bit)
             - 4GB RAM minimum
             - Internet connection for AI features
             
-            ### First Run
-            - The app will prompt you to enter your OpenAI API key
+            ## 🔑 First Run
+            
+            - The app will prompt you to enter your **OpenAI API key**
             - Configure language and avatar preferences in settings
+            
+            ---
+            
+            **Build:** `${{ github.sha }}`
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
