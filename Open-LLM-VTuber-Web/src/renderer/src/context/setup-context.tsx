@@ -36,12 +36,18 @@ export function SetupProvider({ children }: { children: ReactNode }) {
   // Check if API key is actually configured in the backend on startup
   useEffect(() => {
     const checkBackendApiKey = async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
       try {
         const baseUrl = localStorage.getItem('baseUrl') || 'http://127.0.0.1:12393';
         const response = await fetch(`${baseUrl}/api/config/status`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
         });
+        
+        clearTimeout(timeoutId);
         
         if (response.ok) {
           const data = await response.json();
@@ -61,7 +67,8 @@ export function SetupProvider({ children }: { children: ReactNode }) {
           setIsSetupComplete(stored === 'true' && !!hasStoredKey);
         }
       } catch (err) {
-        // Backend not available - use localStorage fallback
+        clearTimeout(timeoutId);
+        // Backend not available or timeout - use localStorage fallback
         const stored = localStorage.getItem(STORAGE_KEY);
         const hasStoredKey = localStorage.getItem(API_KEY_STORAGE);
         setIsSetupComplete(stored === 'true' && !!hasStoredKey);
@@ -96,12 +103,24 @@ export function SetupProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
 
+    // Helper function for fetch with timeout
+    const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 10000) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        return response;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+
     try {
       // Get the backend base URL from localStorage or use default
       const baseUrl = localStorage.getItem('baseUrl') || 'http://127.0.0.1:12393';
       
       // Send API key to backend to save in conf.yaml
-      const apiKeyResponse = await fetch(`${baseUrl}/api/config/api-key`, {
+      const apiKeyResponse = await fetchWithTimeout(`${baseUrl}/api/config/api-key`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -117,19 +136,19 @@ export function SetupProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.detail || 'Failed to save API key');
       }
 
-      // Save PC Control setting to backend
-      const pcControlResponse = await fetch(`${baseUrl}/api/config/computer-use`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          enabled: pcControlEnabled,
-        }),
-      });
-
-      if (!pcControlResponse.ok) {
-        console.warn('Failed to save PC Control setting, will use default');
+      // Save PC Control setting to backend (don't fail if this doesn't work)
+      try {
+        await fetchWithTimeout(`${baseUrl}/api/config/computer-use`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            enabled: pcControlEnabled,
+          }),
+        }, 5000);
+      } catch (pcErr) {
+        console.warn('Failed to save PC Control setting, will use default:', pcErr);
       }
 
       // Save to local storage for persistence
@@ -139,8 +158,9 @@ export function SetupProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (err: any) {
       console.error('Setup error:', err);
-      // If backend is not available, still allow setup (offline mode)
-      if (err.message.includes('fetch') || err.message.includes('network')) {
+      // If backend is not available or timeout, still allow setup (offline mode)
+      if (err.name === 'AbortError' || err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch')) {
+        console.log('Backend not responding, saving locally and proceeding...');
         localStorage.setItem(API_KEY_STORAGE, apiKey.trim());
         localStorage.setItem(STORAGE_KEY, 'true');
         setIsSetupComplete(true);
