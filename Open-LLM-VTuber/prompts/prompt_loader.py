@@ -7,13 +7,13 @@ from loguru import logger
 def get_prompt_dir() -> str:
     """Get the prompts directory.
     
-    In packaged builds (PyInstaller), collected data is stored in _internal/prompts/.
+    In packaged builds (PyInstaller), --add-data puts files at root level next to executable.
     In development mode, returns the directory containing this file.
     """
     if getattr(sys, 'frozen', False):
         # Running as compiled executable (PyInstaller)
-        # PyInstaller stores collected data in _internal/ subfolder
-        return os.path.join(os.path.dirname(sys.executable), "_internal", "prompts")
+        # --add-data "prompts;prompts" puts files at root level
+        return os.path.join(os.path.dirname(sys.executable), "prompts")
     else:
         # Running in development mode
         return os.path.dirname(os.path.abspath(__file__))

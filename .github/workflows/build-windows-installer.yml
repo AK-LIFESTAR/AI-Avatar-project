@@ -95,6 +95,7 @@ jobs:
             --add-data "src;src" `
             --add-data "characters;characters" `
             --add-data "live2d-models;live2d-models" `
+            --add-data "prompts;prompts" `
             --add-data "config_templates;config_templates" `
             --add-data "upgrade_codes;upgrade_codes" `
             --add-data "web_tool;web_tool" `
@@ -141,7 +142,6 @@ jobs:
             --collect-all "torch" `
             --collect-all "silero_vad" `
             --collect-all "tiktoken" `
-            --collect-data "prompts" `
             run_server.py
           
           if (!(Test-Path "dist/backend/backend.exe")) {
@@ -254,6 +254,7 @@ jobs:
             --add-data "src:src" \
             --add-data "characters:characters" \
             --add-data "live2d-models:live2d-models" \
+            --add-data "prompts:prompts" \
             --add-data "config_templates:config_templates" \
             --add-data "upgrade_codes:upgrade_codes" \
             --add-data "web_tool:web_tool" \
@@ -300,7 +301,6 @@ jobs:
             --collect-all "torch" \
             --collect-all "silero_vad" \
             --collect-all "tiktoken" \
-            --collect-data "prompts" \
             run_server.py
           
           if [ ! -f "dist/backend/backend" ]; then
