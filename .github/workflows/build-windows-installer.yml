@@ -1,15 +1,14 @@
 # =============================================================================
-# Project A Prototype - Windows Installer Build
+# Project A Prototype - Windows & Mac Installer Build
 # =============================================================================
-# This workflow builds a Windows installer that includes:
-# 1. Electron frontend app
-# 2. Python backend (compiled with PyInstaller for reliability)
+# This workflow builds installers for:
+# 1. Windows (.exe installer via NSIS)
+# 2. macOS (.dmg installer)
 #
-# The backend is built in ONE-FOLDER mode (not one-file) which is more reliable
-# and compatible with corporate security software.
+# Both include the Python backend compiled with PyInstaller.
 # =============================================================================
 
-name: Build Windows installer (Project A Prototype)
+name: Build Installers (Project A Prototype)
 
 on:
   push:
@@ -27,13 +26,13 @@ env:
   NODE_VERSION: '20'
 
 jobs:
+  # ============================================
+  # WINDOWS BUILD
+  # ============================================
   build-windows:
     runs-on: windows-latest
     
     steps:
-      # ========================================
-      # Setup
-      # ========================================
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -50,9 +49,6 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      # ========================================
-      # Build Python Backend with PyInstaller
-      # ========================================
       - name: Install PyInstaller and dependencies
         shell: pwsh
         run: |
@@ -65,33 +61,21 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Installing backend dependencies..." -ForegroundColor Cyan
-          
-          # Install PyTorch CPU (smaller, faster download)
           pip install --index-url https://download.pytorch.org/whl/cpu torch
-          
-          # Install from requirements.txt (excluding torch)
           if (Test-Path "requirements.txt") {
             $filtered = Get-Content requirements.txt | Where-Object { $_ -notmatch '^\s*torch==' }
             $filtered | Out-File -FilePath requirements-filtered.txt -Encoding ascii
             pip install -r requirements-filtered.txt
           }
-          
-          # Install additional packages that might be needed
           pip install silero-vad websockets
 
       - name: Prepare config files
         working-directory: Open-LLM-VTuber
         shell: pwsh
         run: |
-          Write-Host "Creating default config files..." -ForegroundColor Cyan
-          
-          # Create conf.yaml from template (conf.yaml is gitignored)
           if (!(Test-Path "conf.yaml")) {
             if (Test-Path "config_templates/conf.default.yaml") {
               Copy-Item "config_templates/conf.default.yaml" "conf.yaml"
-              Write-Host "Created conf.yaml from template"
-            } else {
-              Write-Host "WARNING: No config template found!"
             }
           }
 
@@ -99,11 +83,6 @@ jobs:
         working-directory: Open-LLM-VTuber
         shell: pwsh
         run: |
-          Write-Host "Building backend with PyInstaller (one-folder mode)..." -ForegroundColor Cyan
-          
-          # Create PyInstaller spec for one-folder build
-          # One-folder is MORE RELIABLE than one-file for corporate environments
-          
           pyinstaller `
             --name "backend" `
             --onedir `
@@ -165,15 +144,10 @@ jobs:
             --collect-all "tiktoken" `
             run_server.py
           
-          # Check if build succeeded
           if (!(Test-Path "dist/backend/backend.exe")) {
             Write-Host "ERROR: PyInstaller build failed!" -ForegroundColor Red
             exit 1
           }
-          
-          # Show build result
-          $size = (Get-ChildItem -Path "dist/backend" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
-          Write-Host "Backend built successfully: $([math]::Round($size, 2)) MB" -ForegroundColor Green
 
       - name: Copy Backend to Electron
         shell: pwsh
@@ -181,38 +155,19 @@ jobs:
           $sourceDir = "Open-LLM-VTuber/dist/backend"
           $targetDir = "Open-LLM-VTuber-Web/backend-dist"
           
-          Write-Host "Copying backend to Electron project..." -ForegroundColor Cyan
-          
-          # Clean target
-          if (Test-Path $targetDir) {
-            Remove-Item -Recurse -Force $targetDir
-          }
-          
-          # Copy entire backend folder
+          if (Test-Path $targetDir) { Remove-Item -Recurse -Force $targetDir }
           Copy-Item -Path $sourceDir -Destination $targetDir -Recurse
           
-          # Create default conf.yaml from template if not exists
           $confPath = Join-Path $targetDir "conf.yaml"
           if (!(Test-Path $confPath)) {
             $templatePath = "Open-LLM-VTuber/config_templates/conf.default.yaml"
-            if (Test-Path $templatePath) {
-              Copy-Item $templatePath $confPath
-              Write-Host "Created default conf.yaml" -ForegroundColor Green
-            }
+            if (Test-Path $templatePath) { Copy-Item $templatePath $confPath }
           }
           
-          # Write build ID for cache invalidation
           $buildId = "${{ github.sha }}"
           $buildIdPath = Join-Path $targetDir "backend-build-id.txt"
           [System.IO.File]::WriteAllText($buildIdPath, $buildId, [System.Text.UTF8Encoding]::new($false))
-          
-          # Verify
-          Write-Host "Backend copied. Contents:" -ForegroundColor Cyan
-          Get-ChildItem $targetDir | Select-Object Name, Length | Format-Table
 
-      # ========================================
-      # Build Electron App
-      # ========================================
       - name: Install Electron deps
         working-directory: Open-LLM-VTuber-Web
         run: npm ci
@@ -225,76 +180,243 @@ jobs:
           npm run build
           npx electron-builder --win --config electron-builder.yml
 
-      # ========================================
-      # Upload and Release
-      # ========================================
-      - name: Upload installer
+      - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          # Only upload setup installer, not other exe files
           path: Open-LLM-VTuber-Web/release/**/*-setup.exe
           retention-days: 30
 
-      - name: Upload build logs
-        if: always()
+  # ============================================
+  # MAC BUILD
+  # ============================================
+  build-mac:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install PyInstaller and dependencies
+        run: |
+          echo "Installing PyInstaller and build tools..."
+          pip install --upgrade pip
+          pip install pyinstaller
+
+      - name: Install Backend Python Dependencies
+        working-directory: Open-LLM-VTuber
+        run: |
+          echo "Installing backend dependencies..."
+          # Install PyTorch CPU version for Mac
+          pip install torch torchvision torchaudio
+          
+          if [ -f "requirements.txt" ]; then
+            grep -v "^torch==" requirements.txt > requirements-filtered.txt || cp requirements.txt requirements-filtered.txt
+            pip install -r requirements-filtered.txt
+          fi
+          
+          pip install silero-vad websockets
+
+      - name: Prepare config files
+        working-directory: Open-LLM-VTuber
+        run: |
+          if [ ! -f "conf.yaml" ]; then
+            if [ -f "config_templates/conf.default.yaml" ]; then
+              cp config_templates/conf.default.yaml conf.yaml
+            fi
+          fi
+
+      - name: Build Backend with PyInstaller
+        working-directory: Open-LLM-VTuber
+        run: |
+          pyinstaller \
+            --name "backend" \
+            --onedir \
+            --noconfirm \
+            --clean \
+            --console \
+            --add-data "conf.yaml:." \
+            --add-data "model_dict.json:." \
+            --add-data "mcp_servers.json:." \
+            --add-data "src:src" \
+            --add-data "characters:characters" \
+            --add-data "live2d-models:live2d-models" \
+            --add-data "prompts:prompts" \
+            --add-data "config_templates:config_templates" \
+            --add-data "upgrade_codes:upgrade_codes" \
+            --add-data "web_tool:web_tool" \
+            --hidden-import "fastapi" \
+            --hidden-import "uvicorn" \
+            --hidden-import "uvicorn.logging" \
+            --hidden-import "uvicorn.protocols" \
+            --hidden-import "uvicorn.protocols.http" \
+            --hidden-import "uvicorn.protocols.http.auto" \
+            --hidden-import "uvicorn.protocols.websockets" \
+            --hidden-import "uvicorn.protocols.websockets.auto" \
+            --hidden-import "uvicorn.lifespan" \
+            --hidden-import "uvicorn.lifespan.on" \
+            --hidden-import "starlette" \
+            --hidden-import "starlette.routing" \
+            --hidden-import "starlette.middleware" \
+            --hidden-import "pydantic" \
+            --hidden-import "pydantic_core" \
+            --hidden-import "websockets" \
+            --hidden-import "httpx" \
+            --hidden-import "openai" \
+            --hidden-import "anthropic" \
+            --hidden-import "edge_tts" \
+            --hidden-import "torch" \
+            --hidden-import "numpy" \
+            --hidden-import "scipy" \
+            --hidden-import "sounddevice" \
+            --hidden-import "pydub" \
+            --hidden-import "yaml" \
+            --hidden-import "loguru" \
+            --hidden-import "silero_vad" \
+            --hidden-import "tiktoken" \
+            --hidden-import "tiktoken_ext" \
+            --hidden-import "tiktoken_ext.openai_public" \
+            --hidden-import "multidict" \
+            --hidden-import "yarl" \
+            --hidden-import "aiohttp" \
+            --hidden-import "anyio" \
+            --hidden-import "sniffio" \
+            --hidden-import "certifi" \
+            --hidden-import "charset_normalizer" \
+            --hidden-import "idna" \
+            --hidden-import "urllib3" \
+            --collect-all "torch" \
+            --collect-all "silero_vad" \
+            --collect-all "tiktoken" \
+            run_server.py
+          
+          if [ ! -f "dist/backend/backend" ]; then
+            echo "ERROR: PyInstaller build failed!"
+            exit 1
+          fi
+
+      - name: Copy Backend to Electron
+        run: |
+          SOURCE_DIR="Open-LLM-VTuber/dist/backend"
+          TARGET_DIR="Open-LLM-VTuber-Web/backend-dist"
+          
+          rm -rf "$TARGET_DIR"
+          cp -R "$SOURCE_DIR" "$TARGET_DIR"
+          
+          if [ ! -f "$TARGET_DIR/conf.yaml" ]; then
+            TEMPLATE="Open-LLM-VTuber/config_templates/conf.default.yaml"
+            if [ -f "$TEMPLATE" ]; then
+              cp "$TEMPLATE" "$TARGET_DIR/conf.yaml"
+            fi
+          fi
+          
+          echo "${{ github.sha }}" > "$TARGET_DIR/backend-build-id.txt"
+
+      - name: Install Electron deps
+        working-directory: Open-LLM-VTuber-Web
+        run: npm ci
+
+      - name: Build Mac installer (DMG)
+        working-directory: Open-LLM-VTuber-Web
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm run build
+          npx electron-builder --mac --config electron-builder.yml
+
+      - name: Upload Mac installer
         uses: actions/upload-artifact@v4
         with:
-          name: build-logs
+          name: mac-installer
           path: |
-            Open-LLM-VTuber/build/**/*.log
-            Open-LLM-VTuber/dist/**/*.log
-            Open-LLM-VTuber-Web/release/**/*.log
-          retention-days: 7
+            Open-LLM-VTuber-Web/release/**/*.dmg
+            Open-LLM-VTuber-Web/release/**/*.zip
+          retention-days: 30
 
-      - name: Find installer file
-        id: find-installer
-        shell: pwsh
+  # ============================================
+  # RELEASE (after both builds complete)
+  # ============================================
+  release:
+    needs: [build-windows, build-mac]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: installers/windows
+
+      - name: Download Mac installer
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-installer
+          path: installers/mac
+
+      - name: List all installers
         run: |
-          $installer = Get-ChildItem -Path "Open-LLM-VTuber-Web/release" -Filter "*-setup.exe" -Recurse | Select-Object -First 1
-          if ($installer) {
-            Write-Host "Found installer: $($installer.FullName)"
-            echo "INSTALLER_PATH=$($installer.FullName)" >> $env:GITHUB_OUTPUT
-            echo "INSTALLER_NAME=$($installer.Name)" >> $env:GITHUB_OUTPUT
-          } else {
-            Write-Host "ERROR: No setup.exe found!"
-            exit 1
-          }
+          echo "=== Windows Installers ===" 
+          find installers/windows -type f -name "*.exe" | head -20
+          echo ""
+          echo "=== Mac Installers ==="
+          find installers/mac -type f \( -name "*.dmg" -o -name "*.zip" \) | head -20
 
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          # ONLY upload the setup installer - not other exe files
-          files: ${{ steps.find-installer.outputs.INSTALLER_PATH }}
-          tag_name: windows-latest
-          name: "🚀 Project A Prototype - Windows Installer"
+          files: |
+            installers/windows/**/*-setup.exe
+            installers/mac/**/*.dmg
+          tag_name: latest
+          name: "🚀 Project A Prototype - Download"
           prerelease: false
           body: |
-            ## 📥 Download Instructions
+            ## 📥 Download Project A Prototype
             
-            **👉 Click the file below to download:**
-            
-            ### `${{ steps.find-installer.outputs.INSTALLER_NAME }}`
+            Choose the installer for your operating system:
             
             ---
             
-            ## 📋 Installation Steps
+            ### 🪟 Windows
+            **Download:** `project-a-prototype-*-setup.exe`
             
-            1. **Download** the installer file above
-            2. **Run** the downloaded `.exe` file
-            3. **Follow** the installation wizard
-            4. **Launch** "Project A Prototype" from your desktop
+            1. Download the `.exe` file
+            2. Run the installer
+            3. Follow the wizard
+            4. Launch from desktop shortcut
             
-            ## 💻 Requirements
+            **Requirements:** Windows 10/11 (64-bit)
             
-            - Windows 10/11 (64-bit)
-            - 4GB RAM minimum
-            - Internet connection for AI features
+            ---
+            
+            ### 🍎 Mac
+            **Download:** `project-a-prototype-*.dmg`
+            
+            1. Download the `.dmg` file
+            2. Open the DMG
+            3. Drag app to Applications folder
+            4. Launch from Applications
+            
+            **Requirements:** macOS 11+ (Big Sur or later)
+            
+            ---
             
             ## 🔑 First Run
-            
-            - The app will prompt you to enter your **OpenAI API key**
-            - Configure language and avatar preferences in settings
+            - Enter your **OpenAI API key** when prompted
+            - Configure language and avatar in settings
             
             ---
             

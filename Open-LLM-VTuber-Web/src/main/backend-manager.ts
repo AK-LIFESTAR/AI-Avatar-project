@@ -120,20 +120,25 @@ export class BackendManager {
   /**
    * Get the path to the backend executable.
    * Priority:
-   * 1. backend.exe (PyInstaller one-folder build - most reliable)
-   * 2. open-llm-vtuber-backend.exe (legacy PyInstaller one-file)
+   * 1. backend / backend.exe (PyInstaller one-folder build - most reliable)
+   * 2. open-llm-vtuber-backend (legacy PyInstaller one-file)
+   * 
+   * On Windows: executables have .exe extension
+   * On Mac/Linux: executables have no extension
    */
   private getBackendExecutablePath(): string {
-    // First check for PyInstaller one-folder build (preferred)
-    const pyinstallerExe = path.join(this.backendDir, 'backend.exe');
+    const isWindows = process.platform === 'win32';
+    
+    // PyInstaller one-folder build (preferred)
+    const backendName = isWindows ? 'backend.exe' : 'backend';
+    const pyinstallerExe = path.join(this.backendDir, backendName);
     if (fs.existsSync(pyinstallerExe)) {
       return pyinstallerExe;
     }
     
     // Legacy PyInstaller one-file build
-    const legacyExe = process.platform === 'win32' 
-      ? path.join(this.backendDir, 'open-llm-vtuber-backend.exe')
-      : path.join(this.backendDir, 'open-llm-vtuber-backend');
+    const legacyName = isWindows ? 'open-llm-vtuber-backend.exe' : 'open-llm-vtuber-backend';
+    const legacyExe = path.join(this.backendDir, legacyName);
     if (fs.existsSync(legacyExe)) {
       return legacyExe;
     }

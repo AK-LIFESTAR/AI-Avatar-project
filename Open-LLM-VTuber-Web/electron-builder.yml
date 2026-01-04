@@ -42,7 +42,7 @@ mac:
   icon: resources/icon.icns
   target:
     - target: dmg
-      arch: [x64, arm64]
+      arch: [x64]
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -50,8 +50,10 @@ mac:
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
+  # Allow running on Macs without code signing
+  gatekeeperAssess: false
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-mac.${ext}
   writeUpdateInfo: false
 linux:
   target:
