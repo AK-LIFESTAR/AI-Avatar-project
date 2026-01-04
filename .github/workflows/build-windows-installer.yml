@@ -95,7 +95,6 @@ jobs:
             --add-data "src;src" `
             --add-data "characters;characters" `
             --add-data "live2d-models;live2d-models" `
-            --add-data "prompts;prompts" `
             --add-data "config_templates;config_templates" `
             --add-data "upgrade_codes;upgrade_codes" `
             --add-data "web_tool;web_tool" `
@@ -255,7 +254,6 @@ jobs:
             --add-data "src:src" \
             --add-data "characters:characters" \
             --add-data "live2d-models:live2d-models" \
-            --add-data "prompts:prompts" \
             --add-data "config_templates:config_templates" \
             --add-data "upgrade_codes:upgrade_codes" \
             --add-data "web_tool:web_tool" \
