@@ -25,6 +25,8 @@ import { BrowserProvider } from "./context/browser-context";
 import { SetupProvider, useSetup } from "./context/setup-context";
 import { ComputerUseProvider } from "./context/computer-use-context";
 import OnboardingScreen from "./components/onboarding/onboarding-screen";
+import BackendLoadingScreen from "./components/loading/backend-loading-screen";
+import { useBackendStatus } from "./hooks/use-backend-status";
 // eslint-disable-next-line import/no-extraneous-dependencies, import/newline-after-import
 import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
 import Background from "./components/canvas/background";
@@ -230,6 +232,19 @@ function App(): JSX.Element {
 
 function AppWithSetupGate(): JSX.Element {
   const { isSetupComplete } = useSetup();
+  const { status, downloadProgress, isReady } = useBackendStatus();
+  const isElectron = window.api !== undefined;
+  
+  // In Electron, show loading screen while backend is starting
+  // Skip loading screen for web mode (backend managed externally)
+  if (isElectron && !isReady) {
+    return (
+      <BackendLoadingScreen 
+        status={status === 'downloading' ? 'downloading' : 'starting'}
+        downloadProgress={downloadProgress}
+      />
+    );
+  }
   
   // Show onboarding if setup is not complete
   if (!isSetupComplete) {

@@ -313,53 +313,90 @@ export class BackendManager {
     this.proc.unref();
 
     // Wait for backend to come up.
-    // IMPORTANT: First launch can take 5-10 MINUTES because it downloads
-    // speech recognition models (~1GB). Subsequent launches are fast.
-    // Timeout: 10 minutes (600 seconds) for first launch, checking every second.
-    const TIMEOUT_MS = 600000; // 10 minutes
-    const startDeadlineMs = Date.now() + TIMEOUT_MS;
-    let lastLogMessage = '';
+    // IMPORTANT: First launch downloads AI models (~1GB) which can take 10-30+ minutes
+    // depending on internet speed. We DON'T timeout while download is in progress.
+    // Base timeout: 5 minutes. Extended indefinitely while download is active.
+    const BASE_TIMEOUT_MS = 300000; // 5 minutes base timeout
+    let deadlineMs = Date.now() + BASE_TIMEOUT_MS;
+    let lastLogContent = '';
+    let lastDownloadProgress = '';
+    let downloadDetected = false;
     
-    while (Date.now() < startDeadlineMs) {
+    while (true) {
       // eslint-disable-next-line no-await-in-loop
       if (await this.isPortOpen()) {
         this.state = 'running';
         return;
       }
-      // If it failed to spawn or exited early, don't keep waiting.
-      if (this.lastSpawnError || this.lastExit) break;
       
-      // Check log for download progress every few seconds (helps debugging)
-      const currentTail = this.readLogTail(logPath, 500);
-      if (currentTail && currentTail !== lastLogMessage) {
-        lastLogMessage = currentTail;
-        // Log progress to console (not shown to user, but helpful for debugging)
-        if (currentTail.includes('MiB/s') || currentTail.includes('Downloading')) {
-          console.log('Backend is downloading models...');
+      // If it failed to spawn or exited early (not killed by us), don't keep waiting.
+      if (this.lastSpawnError) break;
+      if (this.lastExit && this.lastExit.signal !== 'SIGTERM') break;
+      
+      // Check log for download progress
+      const currentTail = this.readLogTail(logPath, 2000);
+      if (currentTail && currentTail !== lastLogContent) {
+        lastLogContent = currentTail;
+        
+        // Detect if download is in progress (look for progress bar patterns)
+        const isActiveDownload = currentTail.includes('MiB/s') || 
+                                  currentTail.includes('Downloading') || 
+                                  currentTail.includes('.tar.bz2') ||
+                                  currentTail.includes('%|');
+        
+        if (isActiveDownload) {
+          downloadDetected = true;
+          // Extract download progress percentage if possible
+          const progressMatch = currentTail.match(/(\d+)%\|/);
+          const currentProgress = progressMatch ? progressMatch[1] : '';
+          
+          if (currentProgress !== lastDownloadProgress) {
+            lastDownloadProgress = currentProgress;
+            console.log(`Backend downloading AI models: ${currentProgress}% complete...`);
+          }
+          
+          // KEEP EXTENDING THE DEADLINE while download is active
+          // This ensures we NEVER timeout during a download
+          deadlineMs = Date.now() + 60000; // Extend by 1 minute each time we see progress
+        }
+      }
+      
+      // Only timeout if we're past the deadline AND no download is detected recently
+      if (Date.now() > deadlineMs) {
+        // Double-check if download is still happening
+        const finalTail = this.readLogTail(logPath, 2000);
+        const stillDownloading = finalTail?.includes('MiB/s') || finalTail?.includes('%|');
+        if (stillDownloading) {
+          // Keep waiting - download is still active
+          deadlineMs = Date.now() + 60000;
+        } else {
+          break; // Actually timed out
         }
       }
       
       // eslint-disable-next-line no-await-in-loop
-      await new Promise((r) => setTimeout(r, 1000)); // Check every second
+      await new Promise((r) => setTimeout(r, 2000)); // Check every 2 seconds
     }
 
     this.state = 'stopped';
-    const tail = this.readLogTail(logPath);
+    const tail = this.readLogTail(logPath, 4000);
     
     // Check if it was a download timeout vs other error
-    const isDownloading = tail?.includes('MiB/s') || tail?.includes('Downloading') || tail?.includes('.tar.bz2');
+    const isDownloading = tail?.includes('MiB/s') || tail?.includes('%|') || tail?.includes('.tar.bz2');
     
     const extra =
       this.lastSpawnError
         ? `\n\nSpawn error:\n${this.lastSpawnError}`
         : this.lastExit
-          ? `\n\nBackend exited early:\ncode=${this.lastExit.code} signal=${this.lastExit.signal ?? 'null'}`
+          ? `\n\nBackend exited early:\ncode=${this.lastExit.code ?? 'null'} signal=${this.lastExit.signal ?? 'null'}`
           : isDownloading
-            ? '\n\n⏳ The backend is still downloading required AI models (~1GB).\nPlease wait a few more minutes and try again, or check your internet connection.'
-            : '';
+            ? '\n\n⏳ The backend was downloading AI models but didn\'t complete.\nPlease check your internet connection and try again.'
+            : downloadDetected
+              ? '\n\n✅ AI models downloaded, but backend failed to start.\nPlease try restarting the app.'
+              : '';
     dialog.showErrorBox(
       'Backend failed to start',
-      `Tried to start backend but it did not open port ${this.port} within 10 minutes.${extra}\n\nSee log:\n${logPath}${
+      `Tried to start backend but it did not open port ${this.port}.${extra}\n\nSee log:\n${logPath}${
         tail ? `\n\n--- Log tail ---\n${tail}` : ''
       }`,
     );
