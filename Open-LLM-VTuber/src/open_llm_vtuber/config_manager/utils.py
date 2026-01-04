@@ -177,8 +177,19 @@ def scan_config_alts_directory(config_alts_dir: str) -> list[dict]:
         }
     )
 
+    # Resolve to absolute path for packaged builds
+    resolved_dir = config_alts_dir
+    if not os.path.isabs(config_alts_dir):
+        abs_candidate = str(BASE_DIR / config_alts_dir)
+        if os.path.exists(abs_candidate):
+            resolved_dir = abs_candidate
+    
+    if not os.path.exists(resolved_dir):
+        logger.warning(f"Config alts directory not found: {config_alts_dir}")
+        return config_files
+
     # Scan other configs
-    for root, _, files in os.walk(config_alts_dir):
+    for root, _, files in os.walk(resolved_dir):
         for file in files:
             if file.endswith(".yaml"):
                 config: dict = read_yaml(os.path.join(root, file))
@@ -197,9 +208,22 @@ def scan_config_alts_directory(config_alts_dir: str) -> list[dict]:
 
 
 def scan_bg_directory() -> list[str]:
+    """Scan the backgrounds directory and return list of background image files."""
     bg_files = []
     bg_dir = "backgrounds"
-    for root, _, files in os.walk(bg_dir):
+    
+    # Resolve to absolute path for packaged builds
+    resolved_dir = bg_dir
+    if not os.path.isabs(bg_dir):
+        abs_candidate = str(BASE_DIR / bg_dir)
+        if os.path.exists(abs_candidate):
+            resolved_dir = abs_candidate
+    
+    if not os.path.exists(resolved_dir):
+        logger.warning(f"Backgrounds directory not found: {bg_dir}")
+        return bg_files
+    
+    for root, _, files in os.walk(resolved_dir):
         for file in files:
             if file.endswith((".jpg", ".jpeg", ".png", ".gif")):
                 bg_files.append(file)
